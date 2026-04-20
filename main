@@ -1,0 +1,14 @@
+import farm
+import pumpkin
+
+def enough_for_pumpkin_mode():
+	return num_items(Items.Hay) >= 300 and num_items(Items.Wood) >= 300 and num_items(Items.Carrot) >= 100
+
+while True:
+	if num_items(Items.Pumpkin) < 1000:
+		if enough_for_pumpkin_mode():
+			pumpkin.run()
+		else:
+			farm.run()
+	else:
+		farm.run()
