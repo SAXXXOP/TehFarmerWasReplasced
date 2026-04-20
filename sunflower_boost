@@ -1,0 +1,14 @@
+POWER_TARGET = 800
+WIDTH = 4
+HEIGHT = 5
+MIN_HARVESTABLE = 11
+
+def run():
+	plant_sunflower_rect(WIDTH, HEIGHT)
+
+	while num_items(Items.Power) < POWER_TARGET:
+		harvestable, best = scan_harvestable_and_best(WIDTH, HEIGHT)
+
+		if harvestable >= MIN_HARVESTABLE:
+			if best != -1:
+				harvest_best_and_replant(WIDTH, HEIGHT, best)
