@@ -1,0 +1,32 @@
+import common
+
+def handle_tree():
+	plant(Entities.Tree)
+
+def handle_grass():
+	common.ensure_grass()
+
+def handle_carrot():
+	common.ensure_soil()
+	plant(Entities.Carrot)
+	common.water_if_needed()
+
+def run():
+	size = get_world_size()
+
+	for y in range(size):
+		for x in range(size):
+			if can_harvest():
+				harvest()
+
+			if x == size - 1:
+				handle_carrot()
+			else:
+				if (x + y) % 2 == 0:
+					handle_tree()
+				else:
+					handle_grass()
+
+			move(East)
+
+		move(North)
