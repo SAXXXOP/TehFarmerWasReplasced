@@ -1,2 +1,15 @@
-TARGET_UNLOCK = Unlocks.Auto_Unlock
+# goal
+
+AUTO_GOAL = True
+
+UNLOCK_ORDER = [
+	Unlocks.Watering,
+	Unlocks.Fertilizer,
+	Unlocks.Auto_Unlock,
+	Unlocks.Polyculture,
+	Unlocks.Cactus,
+	Unlocks.Mazes,
+]
+
+TARGET_UNLOCK = Unlocks.Cactus
 TARGET_LEVEL = None
