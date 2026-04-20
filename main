@@ -1,4 +1,5 @@
 import goal
+import sunflower_boost
 
 def go_top_left():
 	while get_pos_x() != 0:
@@ -473,23 +474,48 @@ def choose_mode_for_target():
 
 	return mode
 
-while True:
-	mode = choose_mode_for_target()
-
-	if mode == "hay":
-		run_farm("hay")
-	elif mode == "wood":
-		run_farm("wood")
-	elif mode == "carrot":
-		run_farm("carrot")
-	elif mode == "pumpkin":
-		if enough_for_pumpkin_mode():
-			gained = run_pumpkin()
-			quick_print("pumpkin gained =", gained)
-		else:
-			run_farm("hay")
-	elif mode == "cactus":
-		gained = run_cactus()
-		quick_print("cactus gained =", gained)
+def try_unlock_target():
+	if goal.TARGET_LEVEL == None:
+		cost = get_cost(goal.TARGET_UNLOCK)
 	else:
-		run_farm("wood")
+		cost = get_cost(goal.TARGET_UNLOCK, goal.TARGET_LEVEL)
+
+	if cost == None:
+		return False
+
+	for item in cost:
+		if num_items(item) < cost[item]:
+			return False
+
+	unlock(goal.TARGET_UNLOCK)
+	return True
+
+POWER_MIN = 200
+
+while True:
+	if try_unlock_target():
+		quick_print("unlocked =", goal.TARGET_UNLOCK)
+		break
+
+	if num_items(Items.Power) < POWER_MIN:
+		sunflower_boost.run()
+	else:
+		mode = choose_mode_for_target()
+
+		if mode == "hay":
+			run_farm("hay")
+		elif mode == "wood":
+			run_farm("wood")
+		elif mode == "carrot":
+			run_farm("carrot")
+		elif mode == "pumpkin":
+			if enough_for_pumpkin_mode():
+				gained = run_pumpkin()
+				quick_print("pumpkin gained =", gained)
+			else:
+				run_farm("hay")
+		elif mode == "cactus":
+			gained = run_cactus()
+			quick_print("cactus gained =", gained)
+		else:
+			run_farm("wood")
