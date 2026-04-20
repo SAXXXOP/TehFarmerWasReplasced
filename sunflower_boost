@@ -1,7 +1,146 @@
+# sunflower_boost
+
 POWER_TARGET = 800
+
 WIDTH = 4
 HEIGHT = 5
 MIN_HARVESTABLE = 11
+
+def go_top_left():
+	while get_pos_x() != 0:
+		move(West)
+	while get_pos_y() != 0:
+		move(South)
+
+def ensure_soil():
+	if get_ground_type() != Grounds.Soil:
+		till()
+
+def can_afford_sunflower():
+	cost = get_cost(Entities.Sunflower)
+
+	if cost == None:
+		return True
+
+	for item in cost:
+		if num_items(item) < cost[item]:
+			return False
+
+	return True
+
+def plant_sunflower_rect(width, height):
+	go_top_left()
+
+	y = 0
+	while y < height:
+		if y % 2 == 0:
+			x = 0
+			while x < width:
+				ensure_soil()
+				if can_afford_sunflower():
+					plant(Entities.Sunflower)
+
+				if x < width - 1:
+					move(East)
+				x += 1
+		else:
+			x = width - 1
+			while x >= 0:
+				ensure_soil()
+				if can_afford_sunflower():
+					plant(Entities.Sunflower)
+
+				if x > 0:
+					move(West)
+				x -= 1
+
+		if y < height - 1:
+			move(North)
+		y += 1
+
+def scan_harvestable_and_best(width, height):
+	go_top_left()
+
+	count = 0
+	best = -1
+
+	y = 0
+	while y < height:
+		if y % 2 == 0:
+			x = 0
+			while x < width:
+				if can_harvest():
+					count += 1
+					value = measure()
+					if value != None:
+						if value > best:
+							best = value
+
+				if x < width - 1:
+					move(East)
+				x += 1
+		else:
+			x = width - 1
+			while x >= 0:
+				if can_harvest():
+					count += 1
+					value = measure()
+					if value != None:
+						if value > best:
+							best = value
+
+				if x > 0:
+					move(West)
+				x -= 1
+
+		if y < height - 1:
+			move(North)
+		y += 1
+
+	return count, best
+
+def harvest_best_and_replant(width, height, best):
+	go_top_left()
+	harvested = 0
+
+	y = 0
+	while y < height:
+		if y % 2 == 0:
+			x = 0
+			while x < width:
+				if can_harvest():
+					value = measure()
+					if value != None:
+						if value == best:
+							harvest()
+							if can_afford_sunflower():
+								plant(Entities.Sunflower)
+							harvested += 1
+
+				if x < width - 1:
+					move(East)
+				x += 1
+		else:
+			x = width - 1
+			while x >= 0:
+				if can_harvest():
+					value = measure()
+					if value != None:
+						if value == best:
+							harvest()
+							if can_afford_sunflower():
+								plant(Entities.Sunflower)
+							harvested += 1
+
+				if x > 0:
+					move(West)
+				x -= 1
+
+		if y < height - 1:
+			move(North)
+		y += 1
+
+	return harvested
 
 def run():
 	plant_sunflower_rect(WIDTH, HEIGHT)
