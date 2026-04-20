@@ -1,14 +1,495 @@
-import farm
-import pumpkin
+import goal
+
+def go_top_left():
+	while get_pos_x() != 0:
+		move(West)
+	while get_pos_y() != 0:
+		move(South)
+
+def ensure_soil():
+	if get_ground_type() != Grounds.Soil:
+		till()
+
+def ensure_grass():
+	if get_ground_type() != Grounds.Grassland:
+		till()
+
+def reset_and_plant_cactus_square(size):
+	go_top_left()
+
+	y = 0
+	while y < size:
+		if y % 2 == 0:
+			x = 0
+			while x < size:
+				clear()
+				ensure_soil()
+				plant(Entities.Cactus)
+
+				if x < size - 1:
+					move(East)
+				x += 1
+		else:
+			x = size - 1
+			while x >= 0:
+				clear()
+				ensure_soil()
+				plant(Entities.Cactus)
+
+				if x > 0:
+					move(West)
+				x -= 1
+
+		if y < size - 1:
+			move(North)
+		y += 1
+
+def plant_tree():
+	plant(Entities.Tree)
+
+def plant_grass():
+	ensure_grass()
+
+def water_if_needed():
+	if get_water() < 0.5:
+		if num_items(Items.Water) > 0:
+			use_item(Items.Water)
+
+def plant_carrot():
+	ensure_soil()
+	plant(Entities.Carrot)
+	water_if_needed()
+
+def plant_pumpkin_tile():
+	ensure_soil()
+	plant(Entities.Pumpkin)
+
+def handle_hay_tile():
+	if can_harvest():
+		harvest()
+	plant_grass()
+
+def handle_wood_tile(x, y):
+	if can_harvest():
+		harvest()
+
+	if (x + y) % 2 == 0:
+		plant_tree()
+	else:
+		plant_grass()
+
+def handle_carrot_tile():
+	if can_harvest():
+		harvest()
+	plant_carrot()
+
+def run_farm(mode):
+	go_top_left()
+	size = get_world_size()
+
+	y = 0
+	while y < size:
+		if y % 2 == 0:
+			x = 0
+			while x < size:
+				if mode == "hay":
+					handle_hay_tile()
+				elif mode == "wood":
+					handle_wood_tile(x, y)
+				elif mode == "carrot":
+					handle_carrot_tile()
+				else:
+					handle_wood_tile(x, y)
+
+				if x < size - 1:
+					move(East)
+				x += 1
+		else:
+			x = size - 1
+			while x >= 0:
+				if mode == "hay":
+					handle_hay_tile()
+				elif mode == "wood":
+					handle_wood_tile(x, y)
+				elif mode == "carrot":
+					handle_carrot_tile()
+				else:
+					handle_wood_tile(x, y)
+
+				if x > 0:
+					move(West)
+				x -= 1
+
+		if y < size - 1:
+			move(North)
+		y += 1
+
+def all_grown_square(size):
+	go_top_left()
+
+	y = 0
+	while y < size:
+		if y % 2 == 0:
+			x = 0
+			while x < size:
+				if not can_harvest():
+					return False
+
+				if x < size - 1:
+					move(East)
+				x += 1
+		else:
+			x = size - 1
+			while x >= 0:
+				if not can_harvest():
+					return False
+
+				if x > 0:
+					move(West)
+				x -= 1
+
+		if y < size - 1:
+			move(North)
+		y += 1
+
+	return True
+
+def move_to(x, y):
+	cx = get_pos_x()
+	cy = get_pos_y()
+
+	while cx < x:
+		move(East)
+		cx += 1
+
+	while cx > x:
+		move(West)
+		cx -= 1
+
+	while cy < y:
+		move(North)
+		cy += 1
+
+	while cy > y:
+		move(South)
+		cy -= 1
+
+def sweep_sort_cactus(size, passes):
+	p = 0
+	while p < passes:
+		go_top_left()
+
+		y = 0
+		while y < size:
+			if y % 2 == 0:
+				x = 0
+				while x < size:
+					cur = measure()
+
+					if x < size - 1:
+						east = measure(East)
+						if cur > east:
+							swap(East)
+
+					if y < size - 1:
+						cur = measure()
+						north = measure(North)
+						if cur > north:
+							swap(North)
+
+					if x < size - 1:
+						move(East)
+					x += 1
+			else:
+				x = size - 1
+				while x >= 0:
+					cur = measure()
+
+					if x > 0:
+						west = measure(West)
+						if west > cur:
+							swap(West)
+
+					if y < size - 1:
+						cur = measure()
+						north = measure(North)
+						if cur > north:
+							swap(North)
+
+					if x > 0:
+						move(West)
+					x -= 1
+
+			if y < size - 1:
+				move(North)
+			y += 1
+
+		p += 1
+
+def sort_row_left_to_right(y, size):
+	move_to(0, y)
+
+	x = 0
+	while x < size - 1:
+		cur_value = measure()
+		east_value = measure(East)
+
+		if cur_value > east_value:
+			swap(East)
+
+		if x < size - 2:
+			move(East)
+		x += 1
+
+def sort_row_right_to_left(y, size):
+	move_to(size - 1, y)
+
+	x = size - 1
+	while x > 0:
+		cur_value = measure()
+		west_value = measure(West)
+
+		if west_value > cur_value:
+			swap(West)
+
+		if x > 1:
+			move(West)
+		x -= 1
+
+def sort_col_bottom_to_top(x, size):
+	move_to(x, 0)
+
+	y = 0
+	while y < size - 1:
+		cur_value = measure()
+		north_value = measure(North)
+
+		if cur_value > north_value:
+			swap(North)
+
+		if y < size - 2:
+			move(North)
+		y += 1
+
+def sort_col_top_to_bottom(x, size):
+	move_to(x, size - 1)
+
+	y = size - 1
+	while y > 0:
+		cur_value = measure()
+		south_value = measure(South)
+
+		if south_value > cur_value:
+			swap(South)
+
+		if y > 1:
+			move(South)
+		y -= 1
+
+def refine_sort_cactus(size, passes):
+	p = 0
+	while p < passes:
+		y = 0
+		while y < size:
+			sort_row_left_to_right(y, size)
+			y += 1
+
+		x = 0
+		while x < size:
+			sort_col_bottom_to_top(x, size)
+			x += 1
+
+		y = size - 1
+		while y >= 0:
+			sort_row_right_to_left(y, size)
+			y -= 1
+
+		x = size - 1
+		while x >= 0:
+			sort_col_top_to_bottom(x, size)
+			x -= 1
+
+		p += 1
+
+def hybrid_sort_cactus(size, sweep_passes, refine_passes):
+	sweep_sort_cactus(size, sweep_passes)
+	refine_sort_cactus(size, refine_passes)
+
+def harvest_cactus_one(size):
+	go_top_left()
+
+	x = 0
+	while x < size - 1:
+		move(East)
+		x += 1
+
+	y = 0
+	while y < size - 1:
+		move(North)
+		y += 1
+
+	before = num_items(Items.Cactus)
+	harvest()
+	after = num_items(Items.Cactus)
+	return after - before
+
+def run_cactus():
+	size = get_world_size()
+	sweep_passes = 5
+	refine_passes = 2
+
+	reset_and_plant_cactus_square(size)
+
+	while True:
+		if all_grown_square(size):
+			hybrid_sort_cactus(size, sweep_passes, refine_passes)
+			return harvest_cactus_one(size)
 
 def enough_for_pumpkin_mode():
-	return num_items(Items.Hay) >= 300 and num_items(Items.Wood) >= 300 and num_items(Items.Carrot) >= 100
+	if num_items(Items.Hay) < 2500:
+		return False
+	if num_items(Items.Wood) < 2500:
+		return False
+	if num_items(Items.Carrot) < 1200:
+		return False
+	return True
+
+def maintain_pumpkin_field():
+	go_top_left()
+	size = get_world_size()
+
+	y = 0
+	while y < size:
+		if y % 2 == 0:
+			x = 0
+			while x < size:
+				plant_pumpkin_tile()
+
+				if x < size - 1:
+					move(East)
+				x += 1
+		else:
+			x = size - 1
+			while x >= 0:
+				plant_pumpkin_tile()
+
+				if x > 0:
+					move(West)
+				x -= 1
+
+		if y < size - 1:
+			move(North)
+		y += 1
+
+def harvest_pumpkin_field():
+	go_top_left()
+	size = get_world_size()
+
+	before = num_items(Items.Pumpkin)
+
+	y = 0
+	while y < size:
+		if y % 2 == 0:
+			x = 0
+			while x < size:
+				harvest()
+
+				if x < size - 1:
+					move(East)
+				x += 1
+		else:
+			x = size - 1
+			while x >= 0:
+				harvest()
+
+				if x > 0:
+					move(West)
+				x -= 1
+
+		if y < size - 1:
+			move(North)
+		y += 1
+
+	after = num_items(Items.Pumpkin)
+	return after - before
+
+def run_pumpkin():
+	maintain_pumpkin_field()
+
+	while True:
+		if all_grown_square(get_world_size()):
+			return harvest_pumpkin_field()
+
+def get_target_cost():
+	if goal.TARGET_LEVEL == None:
+		return get_cost(goal.TARGET_UNLOCK)
+	return get_cost(goal.TARGET_UNLOCK, goal.TARGET_LEVEL)
+
+def choose_mode_for_target():
+	cost = get_target_cost()
+
+	if cost == None:
+		return "wood"
+
+	hay_missing = 0
+	wood_missing = 0
+	carrot_missing = 0
+	pumpkin_missing = 0
+	cactus_missing = 0
+
+	if Items.Hay in cost:
+		hay_missing = max(0, cost[Items.Hay] - num_items(Items.Hay))
+
+	if Items.Wood in cost:
+		wood_missing = max(0, cost[Items.Wood] - num_items(Items.Wood))
+
+	if Items.Carrot in cost:
+		carrot_missing = max(0, cost[Items.Carrot] - num_items(Items.Carrot))
+
+	if Items.Pumpkin in cost:
+		pumpkin_missing = max(0, cost[Items.Pumpkin] - num_items(Items.Pumpkin))
+
+	if Items.Cactus in cost:
+		cactus_missing = max(0, cost[Items.Cactus] - num_items(Items.Cactus))
+
+	mode = "wood"
+	biggest_missing = wood_missing
+
+	if hay_missing > biggest_missing:
+		biggest_missing = hay_missing
+		mode = "hay"
+
+	if carrot_missing > biggest_missing:
+		biggest_missing = carrot_missing
+		mode = "carrot"
+
+	if pumpkin_missing > biggest_missing:
+		biggest_missing = pumpkin_missing
+		mode = "pumpkin"
+
+	if cactus_missing > biggest_missing:
+		biggest_missing = cactus_missing
+		mode = "cactus"
+
+	return mode
 
 while True:
-	if num_items(Items.Pumpkin) < 1000:
+	mode = choose_mode_for_target()
+
+	if mode == "hay":
+		run_farm("hay")
+	elif mode == "wood":
+		run_farm("wood")
+	elif mode == "carrot":
+		run_farm("carrot")
+	elif mode == "pumpkin":
 		if enough_for_pumpkin_mode():
-			pumpkin.run()
+			gained = run_pumpkin()
+			quick_print("pumpkin gained =", gained)
 		else:
-			farm.run()
+			run_farm("hay")
+	elif mode == "cactus":
+		gained = run_cactus()
+		quick_print("cactus gained =", gained)
 	else:
-		farm.run()
+		run_farm("wood")
