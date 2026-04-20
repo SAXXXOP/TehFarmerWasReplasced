@@ -1,0 +1,12 @@
+def ensure_grass():
+	if get_ground_type() != Grounds.Grassland:
+		till()
+
+def ensure_soil():
+	if get_ground_type() != Grounds.Soil:
+		till()
+
+def water_if_needed():
+	if get_water() < 0.5:
+		if num_items(Items.Water) > 0:
+			use_item(Items.Water)
