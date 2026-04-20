@@ -1,3 +1,9 @@
+def go_top_left():
+	while get_pos_x() != 0:
+		move(East)
+	while get_pos_y() != 0:
+		move(North)
+
 def ensure_grass():
 	if get_ground_type() != Grounds.Grassland:
 		till()
