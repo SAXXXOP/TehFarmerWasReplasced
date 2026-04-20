@@ -1,0 +1,35 @@
+import common
+
+def plant_pumpkin_tile():
+	common.ensure_soil()
+	plant(Entities.Pumpkin)
+
+def maintain():
+	size = get_world_size()
+	ready = 0
+
+	for y in range(size):
+		for x in range(size):
+			if can_harvest():
+				ready += 1
+
+			plant_pumpkin_tile()
+			move(East)
+
+		move(North)
+
+	return ready == size * size
+
+def harvest_all():
+	size = get_world_size()
+
+	for y in range(size):
+		for x in range(size):
+			harvest()
+			move(East)
+
+		move(North)
+
+def run():
+	if maintain():
+		harvest_all()
