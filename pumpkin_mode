@@ -1,12 +1,11 @@
 # pumpkin_mode
 
-CHECK_EVERY_CALLS = 300  # まずは300。まだウロウロするなら 500、収穫が遅いなら 150
+# 1回の run() で処理するマス数（重いなら下げる）
+STEPS_PER_CALL = 80
 
-# [call_count, planted_once] を保持する
-_state = [0, 0]  # planted_once は 0/1 で管理
-
-_call_count = 0
-_planted_once = False
+# state = [idx, phase, repaired_in_lap, all_pumpkin_in_lap, all_harvestable_in_lap, lap_seen, size]
+# phase: 0=planting, 1=repair/grow, 2=harvest
+_state = [0, 0, 0, 1, 1, 0, 0]
 
 def go_top_left():
 	while get_pos_x() != 0:
@@ -18,10 +17,6 @@ def ensure_soil():
 	if get_ground_type() != Grounds.Soil:
 		till()
 
-def plant_pumpkin_tile():
-	ensure_soil()
-	plant(Entities.Pumpkin)
-
 def enough_for_mode():
 	if num_items(Items.Hay) < 2500:
 		return False
@@ -31,184 +26,145 @@ def enough_for_mode():
 		return False
 	return True
 
-def clear_field():
-	go_top_left()
-	size = get_world_size()
-
+def build_scan_order(size):
+	# (0,0) から蛇行して size*size マスを1回ずつ訪問する座標列
+	order = []
 	y = 0
 	while y < size:
 		if y % 2 == 0:
 			x = 0
 			while x < size:
-				clear()
-				if x < size - 1:
-					move(East)
+				order.append((x, y))
 				x += 1
 		else:
 			x = size - 1
 			while x >= 0:
-				clear()
-				if x > 0:
-					move(West)
+				order.append((x, y))
 				x -= 1
-
-		if y < size - 1:
-			move(North)
 		y += 1
+	return order
 
-def plant_full_field_once():
-	# 1回だけ全面に植える（ここを毎回やると成長がリセットされやすい）
-	go_top_left()
-	size = get_world_size()
-
-	y = 0
-	while y < size:
-		if y % 2 == 0:
-			x = 0
-			while x < size:
-				plant_pumpkin_tile()
-				if x < size - 1:
-					move(East)
-				x += 1
-		else:
-			x = size - 1
-			while x >= 0:
-				plant_pumpkin_tile()
-				if x > 0:
-					move(West)
-				x -= 1
-
-		if y < size - 1:
-			move(North)
-		y += 1
-
-def repair_non_pumpkin_only():
-	# ひまわり残りや、deadが別エンティティならそれだけ直す
-	# ※ Entities.Pumpkin の未成熟は触らない（成長リセットを避ける）
-	go_top_left()
-	size = get_world_size()
-
-	y = 0
-	while y < size:
-		if y % 2 == 0:
-			x = 0
-			while x < size:
-				if get_entity_type() != Entities.Pumpkin:
-					clear()
-					plant_pumpkin_tile()
-				if x < size - 1:
-					move(East)
-				x += 1
-		else:
-			x = size - 1
-			while x >= 0:
-				if get_entity_type() != Entities.Pumpkin:
-					clear()
-					plant_pumpkin_tile()
-				if x > 0:
-					move(West)
-				x -= 1
-
-		if y < size - 1:
-			move(North)
-		y += 1
-
-def all_grown_square(size):
-	go_top_left()
-
-	y = 0
-	while y < size:
-		if y % 2 == 0:
-			x = 0
-			while x < size:
-				if not can_harvest():
-					return False
-				if x < size - 1:
-					move(East)
-				x += 1
-		else:
-			x = size - 1
-			while x >= 0:
-				if not can_harvest():
-					return False
-				if x > 0:
-					move(West)
-				x -= 1
-
-		if y < size - 1:
-			move(North)
-		y += 1
-
-	return True
-
-def harvest_field_fast():
-	# まず1回だけ収穫を試す（巨大化してればこれで十分なことが多い）
-	size = get_world_size()
-	before = num_items(Items.Pumpkin)
-
-	go_top_left()
-	x = 0
-	while x < size - 1:
+def move_to(x, y):
+	# 近道で移動（毎回1マスずつ move するより速いことが多い）
+	while get_pos_x() < x:
 		move(East)
-		x += 1
-	y = 0
-	while y < size - 1:
+	while get_pos_x() > x:
+		move(West)
+	while get_pos_y() < y:
 		move(North)
-		y += 1
+	while get_pos_y() > y:
+		move(South)
 
-	harvest()
-	after = num_items(Items.Pumpkin)
-	gained = after - before
-	if gained > 0:
-		return gained
+def plant_here():
+	ensure_soil()
+	plant(Entities.Pumpkin)
 
-	# ダメなら全面収穫（保険）
-	go_top_left()
-	before = num_items(Items.Pumpkin)
+def init_if_needed():
+	size = get_world_size()
+	if _state[6] != size:
+		_state[0] = 0
+		_state[1] = 0
+		_state[2] = 0
+		_state[3] = 1
+		_state[4] = 1
+		_state[5] = 0
+		_state[6] = size
 
-	yy = 0
-	while yy < size:
-		if yy % 2 == 0:
-			xx = 0
-			while xx < size:
-				harvest()
-				if xx < size - 1:
-					move(East)
-				xx += 1
+def begin_new_lap():
+	_state[2] = 0
+	_state[3] = 1
+	_state[4] = 1
+	_state[5] = 0
+
+def step_tile(x, y):
+	t = get_entity_type()
+
+	if _state[1] == 0:
+		# planting phase: とにかく全面をパンプキンに揃える
+		if t != Entities.Pumpkin:
+			clear()
+			plant_here()
 		else:
-			xx = size - 1
-			while xx >= 0:
-				harvest()
-				if xx > 0:
-					move(West)
-				xx -= 1
+			# 既に Pumpkin なら触らない（成長リセット回避）
+			pass
+		return
 
-		if yy < size - 1:
-			move(North)
-		yy += 1
+	# repair/grow phase
+	if t == Entities.Dead_Pumpkin:
+		# 仕様どおり：植えるだけで死骸が消える
+		plant_here()
+		_state[2] += 1
+		_state[3] = 0
+		_state[4] = 0
+		return
 
+	if t != Entities.Pumpkin:
+		# ひまわり等の残り → clearして置換
+		clear()
+		plant_here()
+		_state[2] += 1
+		_state[3] = 0
+		_state[4] = 0
+		return
+
+	# t == Entities.Pumpkin のとき
+	# ここでは未成熟でも触らない（植え直しで成長潰し防止）
+	if not can_harvest():
+		_state[4] = 0
+
+def harvest_once():
+	before = num_items(Items.Pumpkin)
+	harvest()
 	after = num_items(Items.Pumpkin)
 	return after - before
 
 def run(reset_field = False):
-	# reset_field か、まだ植えてないなら初回植え付け
-	if reset_field or (_state[1] == 0):
+	init_if_needed()
+	size = _state[6]
+	order = build_scan_order(size)
+
+	# reset_field（別モードから来た初回）なら planting フェーズへ戻す
+	if reset_field:
+		_state[1] = 0
 		_state[0] = 0
-		_state[1] = 1
-		clear_field()
-		plant_full_field_once()
-		return 0
+		begin_new_lap()
 
-	# 毎回チェックしない（ウロウロ防止）
-	_state[0] += 1
-	if _state[0] % CHECK_EVERY_CALLS != 0:
-		return 0
+	# 1回の呼び出しで少しだけ進める
+	steps = 0
+	while steps < STEPS_PER_CALL:
+		x, y = order[_state[0]]
+		move_to(x, y)
 
-	# 間引いたタイミングでだけ修復＆完成判定
-	repair_non_pumpkin_only()
+		step_tile(x, y)
 
-	if all_grown_square(get_world_size()):
-		_state[0] = 0
-		return harvest_field_fast()
+		_state[0] += 1
+		_state[5] += 1
+		if _state[0] >= size * size:
+			# 1周終わり：判定
+			_state[0] = 0
+
+			if _state[1] == 0:
+				# planting が1周終わったら repair/grow へ
+				_state[1] = 1
+				begin_new_lap()
+				# 以降は成熟待ち＆dead補修
+				return 0
+
+			# repair/grow の1周が終わった
+			# 全部 Pumpkin かつ 全部 harvestable なら収穫へ
+			if _state[3] == 1 and _state[4] == 1:
+				# 収穫は1回で良いことが多い（巨大カボチャ前提）
+				gained = harvest_once()
+
+				# 次サイクル：収穫地点から planting を再開したいので
+				# インデックスだけ進めて planting に戻す
+				_state[1] = 0
+				begin_new_lap()
+				return gained
+
+			# まだ成熟してない／補修が必要：次周へ
+			begin_new_lap()
+
+		steps += 1
 
 	return 0
