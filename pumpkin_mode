@@ -1,31 +1,12 @@
 # pumpkin_mode
 
-def clear_field():
-	go_top_left()
-	size = get_world_size()
+CHECK_EVERY_CALLS = 300  # まずは300。まだウロウロするなら 500、収穫が遅いなら 150
 
-	y = 0
-	while y < size:
-		if y % 2 == 0:
-			x = 0
-			while x < size:
-				clear()
+# [call_count, planted_once] を保持する
+_state = [0, 0]  # planted_once は 0/1 で管理
 
-				if x < size - 1:
-					move(East)
-				x += 1
-		else:
-			x = size - 1
-			while x >= 0:
-				clear()
-
-				if x > 0:
-					move(West)
-				x -= 1
-
-		if y < size - 1:
-			move(North)
-		y += 1
+_call_count = 0
+_planted_once = False
 
 def go_top_left():
 	while get_pos_x() != 0:
@@ -50,6 +31,88 @@ def enough_for_mode():
 		return False
 	return True
 
+def clear_field():
+	go_top_left()
+	size = get_world_size()
+
+	y = 0
+	while y < size:
+		if y % 2 == 0:
+			x = 0
+			while x < size:
+				clear()
+				if x < size - 1:
+					move(East)
+				x += 1
+		else:
+			x = size - 1
+			while x >= 0:
+				clear()
+				if x > 0:
+					move(West)
+				x -= 1
+
+		if y < size - 1:
+			move(North)
+		y += 1
+
+def plant_full_field_once():
+	# 1回だけ全面に植える（ここを毎回やると成長がリセットされやすい）
+	go_top_left()
+	size = get_world_size()
+
+	y = 0
+	while y < size:
+		if y % 2 == 0:
+			x = 0
+			while x < size:
+				plant_pumpkin_tile()
+				if x < size - 1:
+					move(East)
+				x += 1
+		else:
+			x = size - 1
+			while x >= 0:
+				plant_pumpkin_tile()
+				if x > 0:
+					move(West)
+				x -= 1
+
+		if y < size - 1:
+			move(North)
+		y += 1
+
+def repair_non_pumpkin_only():
+	# ひまわり残りや、deadが別エンティティならそれだけ直す
+	# ※ Entities.Pumpkin の未成熟は触らない（成長リセットを避ける）
+	go_top_left()
+	size = get_world_size()
+
+	y = 0
+	while y < size:
+		if y % 2 == 0:
+			x = 0
+			while x < size:
+				if get_entity_type() != Entities.Pumpkin:
+					clear()
+					plant_pumpkin_tile()
+				if x < size - 1:
+					move(East)
+				x += 1
+		else:
+			x = size - 1
+			while x >= 0:
+				if get_entity_type() != Entities.Pumpkin:
+					clear()
+					plant_pumpkin_tile()
+				if x > 0:
+					move(West)
+				x -= 1
+
+		if y < size - 1:
+			move(North)
+		y += 1
+
 def all_grown_square(size):
 	go_top_left()
 
@@ -60,7 +123,6 @@ def all_grown_square(size):
 			while x < size:
 				if not can_harvest():
 					return False
-
 				if x < size - 1:
 					move(East)
 				x += 1
@@ -69,7 +131,6 @@ def all_grown_square(size):
 			while x >= 0:
 				if not can_harvest():
 					return False
-
 				if x > 0:
 					move(West)
 				x -= 1
@@ -80,88 +141,74 @@ def all_grown_square(size):
 
 	return True
 
-def maintain_field():
-	go_top_left()
+def harvest_field_fast():
+	# まず1回だけ収穫を試す（巨大化してればこれで十分なことが多い）
 	size = get_world_size()
-
-	y = 0
-	while y < size:
-		if y % 2 == 0:
-			x = 0
-			while x < size:
-				plant_pumpkin_tile()
-
-				if x < size - 1:
-					move(East)
-				x += 1
-		else:
-			x = size - 1
-			while x >= 0:
-				plant_pumpkin_tile()
-
-				if x > 0:
-					move(West)
-				x -= 1
-
-		if y < size - 1:
-			move(North)
-		y += 1
-
-def harvest_field():
-	go_top_left()
-	size = get_world_size()
-
 	before = num_items(Items.Pumpkin)
 
+	go_top_left()
+	x = 0
+	while x < size - 1:
+		move(East)
+		x += 1
 	y = 0
-	while y < size:
-		if y % 2 == 0:
-			x = 0
-			while x < size:
-				harvest()
-
-				if x < size - 1:
-					move(East)
-				x += 1
-		else:
-			x = size - 1
-			while x >= 0:
-				harvest()
-
-				if x > 0:
-					move(West)
-				x -= 1
-
-		if y < size - 1:
-			move(North)
+	while y < size - 1:
+		move(North)
 		y += 1
+
+	harvest()
+	after = num_items(Items.Pumpkin)
+	gained = after - before
+	if gained > 0:
+		return gained
+
+	# ダメなら全面収穫（保険）
+	go_top_left()
+	before = num_items(Items.Pumpkin)
+
+	yy = 0
+	while yy < size:
+		if yy % 2 == 0:
+			xx = 0
+			while xx < size:
+				harvest()
+				if xx < size - 1:
+					move(East)
+				xx += 1
+		else:
+			xx = size - 1
+			while xx >= 0:
+				harvest()
+				if xx > 0:
+					move(West)
+				xx -= 1
+
+		if yy < size - 1:
+			move(North)
+		yy += 1
 
 	after = num_items(Items.Pumpkin)
 	return after - before
 
-# pumpkin_mode の末尾付近に追加/置換
-
-CHECK_EVERY_CALLS = 200
-_call_count = 0
-
 def run(reset_field = False):
-	global _call_count
-
-	# 初回だけ全面植え付け
-	if reset_field:
-		_call_count = 0
+	# reset_field か、まだ植えてないなら初回植え付け
+	if reset_field or (_state[1] == 0):
+		_state[0] = 0
+		_state[1] = 1
 		clear_field()
-		maintain_field()
+		plant_full_field_once()
 		return 0
 
-	# 成長待ち中は毎回チェックしない（移動しない）
-	_call_count += 1
-	if _call_count % CHECK_EVERY_CALLS != 0:
+	# 毎回チェックしない（ウロウロ防止）
+	_state[0] += 1
+	if _state[0] % CHECK_EVERY_CALLS != 0:
 		return 0
 
-	# N回に1回だけ確認して、完成してたら収穫
+	# 間引いたタイミングでだけ修復＆完成判定
+	repair_non_pumpkin_only()
+
 	if all_grown_square(get_world_size()):
-		_call_count = 0
-		return harvest_field()
+		_state[0] = 0
+		return harvest_field_fast()
 
 	return 0
