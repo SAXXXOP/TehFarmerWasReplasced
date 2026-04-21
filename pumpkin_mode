@@ -1,0 +1,125 @@
+# pumpkin_mode
+
+def go_top_left():
+	while get_pos_x() != 0:
+		move(West)
+	while get_pos_y() != 0:
+		move(South)
+
+def ensure_soil():
+	if get_ground_type() != Grounds.Soil:
+		till()
+
+def plant_pumpkin_tile():
+	ensure_soil()
+	plant(Entities.Pumpkin)
+
+def enough_for_mode():
+	if num_items(Items.Hay) < 2500:
+		return False
+	if num_items(Items.Wood) < 2500:
+		return False
+	if num_items(Items.Carrot) < 1200:
+		return False
+	return True
+
+def plant_full_field():
+	go_top_left()
+	size = get_world_size()
+
+	y = 0
+	while y < size:
+		if y % 2 == 0:
+			x = 0
+			while x < size:
+				plant_pumpkin_tile()
+
+				if x < size - 1:
+					move(East)
+				x += 1
+		else:
+			x = size - 1
+			while x >= 0:
+				plant_pumpkin_tile()
+
+				if x > 0:
+					move(West)
+				x -= 1
+
+		if y < size - 1:
+			move(North)
+		y += 1
+
+def repair_and_check_field():
+	go_top_left()
+	size = get_world_size()
+
+	all_ready = True
+
+	y = 0
+	while y < size:
+		if y % 2 == 0:
+			x = 0
+			while x < size:
+				if not can_harvest():
+					plant_pumpkin_tile()
+					all_ready = False
+
+				if x < size - 1:
+					move(East)
+				x += 1
+		else:
+			x = size - 1
+			while x >= 0:
+				if not can_harvest():
+					plant_pumpkin_tile()
+					all_ready = False
+
+				if x > 0:
+					move(West)
+				x -= 1
+
+		if y < size - 1:
+			move(North)
+		y += 1
+
+	return all_ready
+
+def harvest_field():
+	go_top_left()
+	size = get_world_size()
+
+	before = num_items(Items.Pumpkin)
+
+	y = 0
+	while y < size:
+		if y % 2 == 0:
+			x = 0
+			while x < size:
+				harvest()
+
+				if x < size - 1:
+					move(East)
+				x += 1
+		else:
+			x = size - 1
+			while x >= 0:
+				harvest()
+
+				if x > 0:
+					move(West)
+				x -= 1
+
+		if y < size - 1:
+			move(North)
+		y += 1
+
+	after = num_items(Items.Pumpkin)
+	return after - before
+
+def run():
+	plant_full_field()
+
+	while True:
+		if repair_and_check_field():
+			return harvest_field()
