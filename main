@@ -165,6 +165,8 @@ target_info = goal.resolve_target()
 print_goal_status(target_info)
 print_missing_status(target_info)
 
+last_mode = "idle"
+
 while True:
 	target_info = goal.resolve_target()
 
@@ -177,6 +179,7 @@ while True:
 	if sunflower_boost.should_refill() and sunflower_boost.can_run():
 		quick_print("mode = sunflower_boost")
 		sunflower_boost.run()
+		last_mode = "sunflower_boost"
 	else:
 		mode = choose_mode_for_target(target_info)
 	
@@ -200,7 +203,8 @@ while True:
 		elif mode == "pumpkin":
 			ensure_normal_hat()
 			if pumpkin_mode.enough_for_mode():
-				gained = pumpkin_mode.run()
+				reset_field = last_mode != "pumpkin"
+				gained = pumpkin_mode.run(reset_field)
 				quick_print("pumpkin gained =", gained)
 			else:
 				quick_print("pumpkin not ready")
@@ -219,3 +223,5 @@ while True:
 		else:
 			ensure_normal_hat()
 			quick_print("mode = idle")
+
+		last_mode = mode
