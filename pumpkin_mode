@@ -140,11 +140,14 @@ def harvest_field():
 	return after - before
 
 def run(reset_field = False):
+	# 重要: 毎回植え直すと成長がリセットされる可能性があるので、
+	# 「pumpkinに入った初回だけ」植える
+
 	if reset_field:
 		clear_field()
+		maintain_field()   # ← 初回だけ全面植え付け
 
-	maintain_field()
-
+	# 2回目以降は植え付けしない（成長待ち）
 	if all_grown_square(get_world_size()):
 		return harvest_field()
 
