@@ -122,11 +122,10 @@ def choose_mode_for_target(target_info):
 		mode = "carrot"
 
 	if pumpkin_missing > biggest_missing:
-		if enough_for_pumpkin_mode():
+		if pumpkin_mode.enough_for_mode():
 			biggest_missing = pumpkin_missing
 			mode = "pumpkin"
 		else:
-			# かぼちゃ準備が足りない間は、まず不足素材を作る
 			if num_items(Items.Hay) < 2500:
 				return "hay"
 			if num_items(Items.Wood) < 2500:
