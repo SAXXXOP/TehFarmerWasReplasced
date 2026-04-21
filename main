@@ -534,25 +534,29 @@ while True:
 		print_goal_status(target_info)
 		print_missing_status(target_info)
 
-	if sunflower_boost.should_refill():
+	if sunflower_boost.should_refill() and sunflower_boost.can_run():
 		quick_print("mode = sunflower_boost")
 		sunflower_boost.run()
 	else:
 		mode = choose_mode_for_target(target_info)
+	
+		if sunflower_boost.should_refill() and not sunflower_boost.can_run():
+			quick_print("sunflower not ready")
+	
 		quick_print("mode =", mode)
-
+	
 		if mode == "hay":
 			ensure_normal_hat()
 			hay_mode.run()
-		
+	
 		elif mode == "wood":
 			ensure_normal_hat()
 			wood_mode.run()
-		
+	
 		elif mode == "carrot":
 			ensure_normal_hat()
 			carrot_mode.run()
-
+	
 		elif mode == "pumpkin":
 			ensure_normal_hat()
 			if enough_for_pumpkin_mode():
@@ -560,18 +564,18 @@ while True:
 				quick_print("pumpkin gained =", gained)
 			else:
 				quick_print("pumpkin not ready")
-
+	
 		elif mode == "cactus":
 			ensure_normal_hat()
 			gained = run_cactus()
 			quick_print("cactus gained =", gained)
-
+	
 		elif mode == "bone":
 			target_cost = target_info["cost"]
 			target_bones = target_cost[Items.Bone]
 			quick_print("bone target =", target_bones, "have =", num_items(Items.Bone))
 			dinosaur_boost.run(target_bones)
-
+	
 		else:
 			ensure_normal_hat()
 			quick_print("mode = idle")
