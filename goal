@@ -1,6 +1,8 @@
 # goal
 
-AUTO_GOAL = True
+# True なら自動で次目標を選ぶ
+# False なら MANUAL_TARGET_UNLOCK / MANUAL_TARGET_LEVEL を使う
+AUTO_GOAL = False
 
 UNLOCK_ORDER = [
 	Unlocks.Watering,
@@ -11,5 +13,95 @@ UNLOCK_ORDER = [
 	Unlocks.Mazes,
 ]
 
-TARGET_UNLOCK = Unlocks.Cactus
-TARGET_LEVEL = None
+# manual 用
+MANUAL_TARGET_UNLOCK = Unlocks.Cactus
+MANUAL_TARGET_LEVEL = None
+
+def is_empty_cost(cost):
+	if cost == None:
+		return True
+
+	for item in cost:
+		return False
+
+	return True
+
+def get_cost_safe(unlock, level = None):
+	if unlock == None:
+		return None
+
+	if level == None:
+		return get_cost(unlock)
+
+	return get_cost(unlock, level)
+
+def get_auto_target_unlock():
+	i = 0
+	while i < len(UNLOCK_ORDER):
+		candidate = UNLOCK_ORDER[i]
+		cost = get_cost_safe(candidate)
+
+		if not is_empty_cost(cost):
+			return candidate
+
+		i += 1
+
+	return None
+
+def get_current_target_unlock():
+	if AUTO_GOAL:
+		return get_auto_target_unlock()
+	return MANUAL_TARGET_UNLOCK
+
+def get_current_target_level():
+	if AUTO_GOAL:
+		return None
+	return MANUAL_TARGET_LEVEL
+
+def get_current_target_cost():
+	target = get_current_target_unlock()
+	level = get_current_target_level()
+
+	if target == None:
+		return None
+
+	return get_cost_safe(target, level)
+
+def resolve_target():
+	target = get_current_target_unlock()
+	level = get_current_target_level()
+	cost = get_current_target_cost()
+
+	goal_mode = "manual"
+	if AUTO_GOAL:
+		goal_mode = "auto"
+
+	if target == None:
+		return {
+			"target": None,
+			"target_level": level,
+			"cost": None,
+			"active": False,
+			"goal_mode": goal_mode,
+		}
+
+	if is_empty_cost(cost):
+		return {
+			"target": target,
+			"target_level": level,
+			"cost": cost,
+			"active": False,
+			"goal_mode": goal_mode,
+		}
+
+	return {
+		"target": target,
+		"target_level": level,
+		"cost": cost,
+		"active": True,
+		"goal_mode": goal_mode,
+	}
+
+def has_active_target():
+	info = resolve_target()
+	return info["active"]
