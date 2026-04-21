@@ -31,86 +31,6 @@ def ensure_soil():
 	if get_ground_type() != Grounds.Soil:
 		till()
 
-def plant_pumpkin_tile():
-	ensure_soil()
-	plant(Entities.Pumpkin)
-
-def enough_for_pumpkin_mode():
-	if num_items(Items.Hay) < 2500:
-		return False
-	if num_items(Items.Wood) < 2500:
-		return False
-	if num_items(Items.Carrot) < 1200:
-		return False
-	return True
-
-def maintain_pumpkin_field():
-	go_top_left()
-	size = get_world_size()
-
-	y = 0
-	while y < size:
-		if y % 2 == 0:
-			x = 0
-			while x < size:
-				plant_pumpkin_tile()
-
-				if x < size - 1:
-					move(East)
-				x += 1
-		else:
-			x = size - 1
-			while x >= 0:
-				plant_pumpkin_tile()
-
-				if x > 0:
-					move(West)
-				x -= 1
-
-		if y < size - 1:
-			move(North)
-		y += 1
-
-def harvest_pumpkin_field():
-	go_top_left()
-	size = get_world_size()
-
-	before = num_items(Items.Pumpkin)
-
-	y = 0
-	while y < size:
-		if y % 2 == 0:
-			x = 0
-			while x < size:
-				harvest()
-
-				if x < size - 1:
-					move(East)
-				x += 1
-		else:
-			x = size - 1
-			while x >= 0:
-				harvest()
-
-				if x > 0:
-					move(West)
-				x -= 1
-
-		if y < size - 1:
-			move(North)
-		y += 1
-
-	after = num_items(Items.Pumpkin)
-	return after - before
-
-def run_pumpkin():
-	maintain_pumpkin_field()
-
-	if all_grown_square(get_world_size()):
-		return harvest_pumpkin_field()
-
-	return 0
-
 def get_missing_map(cost):
 	missing = {}
 
@@ -280,8 +200,8 @@ while True:
 	
 		elif mode == "pumpkin":
 			ensure_normal_hat()
-			if enough_for_pumpkin_mode():
-				gained = run_pumpkin()
+			if pumpkin_mode.enough_for_mode():
+				gained = pumpkin_mode.run()
 				quick_print("pumpkin gained =", gained)
 			else:
 				quick_print("pumpkin not ready")
