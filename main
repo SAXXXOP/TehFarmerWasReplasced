@@ -25,6 +25,10 @@ def go_top_left():
 	while get_pos_y() != 0:
 		move(South)
 
+def ensure_soil():
+	if get_ground_type() != Grounds.Soil:
+		till()
+
 def reset_and_plant_cactus_square(size):
 	go_top_left()
 
@@ -348,47 +352,13 @@ def harvest_pumpkin_field():
 	after = num_items(Items.Pumpkin)
 	return after - before
 
-def repair_and_check_pumpkin_field():
-	go_top_left()
-	size = get_world_size()
-
-	all_ready = True
-
-	y = 0
-	while y < size:
-		if y % 2 == 0:
-			x = 0
-			while x < size:
-				if not can_harvest():
-					plant_pumpkin_tile()
-					all_ready = False
-
-				if x < size - 1:
-					move(East)
-				x += 1
-		else:
-			x = size - 1
-			while x >= 0:
-				if not can_harvest():
-					plant_pumpkin_tile()
-					all_ready = False
-
-				if x > 0:
-					move(West)
-				x -= 1
-
-		if y < size - 1:
-			move(North)
-		y += 1
-
-	return all_ready
-
 def run_pumpkin():
 	maintain_pumpkin_field()
 
-	while True:
-		if repair_and_check_pumpkin_field():
-			return harvest_pumpkin_field()
+	if all_grown_square(get_world_size()):
+		return harvest_pumpkin_field()
+
+	return 0
 
 def get_missing_map(cost):
 	missing = {}
