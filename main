@@ -203,7 +203,10 @@ while True:
 		elif mode == "pumpkin":
 			ensure_normal_hat()
 			if pumpkin_mode.enough_for_mode():
+				# main の pumpkin 分岐の中
 				reset_field = last_mode != "pumpkin"
+				if reset_field:
+					quick_print("pumpkin enter: reset_field=", reset_field, "last_mode=", last_mode)
 				gained = pumpkin_mode.run(reset_field)
 				if gained > 0:
 					quick_print("pumpkin gained =", gained)
