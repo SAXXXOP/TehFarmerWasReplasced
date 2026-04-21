@@ -139,16 +139,29 @@ def harvest_field():
 	after = num_items(Items.Pumpkin)
 	return after - before
 
+# pumpkin_mode の末尾付近に追加/置換
+
+CHECK_EVERY_CALLS = 200
+_call_count = 0
+
 def run(reset_field = False):
-	# 重要: 毎回植え直すと成長がリセットされる可能性があるので、
-	# 「pumpkinに入った初回だけ」植える
+	global _call_count
 
+	# 初回だけ全面植え付け
 	if reset_field:
+		_call_count = 0
 		clear_field()
-		maintain_field()   # ← 初回だけ全面植え付け
+		maintain_field()
+		return 0
 
-	# 2回目以降は植え付けしない（成長待ち）
+	# 成長待ち中は毎回チェックしない（移動しない）
+	_call_count += 1
+	if _call_count % CHECK_EVERY_CALLS != 0:
+		return 0
+
+	# N回に1回だけ確認して、完成してたら収穫
 	if all_grown_square(get_world_size()):
+		_call_count = 0
 		return harvest_field()
 
 	return 0
