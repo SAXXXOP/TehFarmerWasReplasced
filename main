@@ -204,7 +204,7 @@ while True:
 			ensure_normal_hat()
 			if pumpkin_mode.enough_for_mode():
 				reset_field = last_mode != "pumpkin"
-				gained = pumpkin_mode.run(reset_field)
+				gained = pumpkin_mode.run()
 				quick_print("pumpkin gained =", gained)
 			else:
 				quick_print("pumpkin not ready")
