@@ -1,5 +1,32 @@
 # pumpkin_mode
 
+def clear_field():
+	go_top_left()
+	size = get_world_size()
+
+	y = 0
+	while y < size:
+		if y % 2 == 0:
+			x = 0
+			while x < size:
+				clear()
+
+				if x < size - 1:
+					move(East)
+				x += 1
+		else:
+			x = size - 1
+			while x >= 0:
+				clear()
+
+				if x > 0:
+					move(West)
+				x -= 1
+
+		if y < size - 1:
+			move(North)
+		y += 1
+
 def go_top_left():
 	while get_pos_x() != 0:
 		move(West)
@@ -112,7 +139,10 @@ def harvest_field():
 	after = num_items(Items.Pumpkin)
 	return after - before
 
-def run():
+def run(reset_field = False):
+	if reset_field:
+		clear_field()
+
 	maintain_field()
 
 	if all_grown_square(get_world_size()):
