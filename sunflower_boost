@@ -54,6 +54,9 @@ def can_afford_sunflower():
 
 	return True
 
+def can_run():
+	return can_afford_sunflower()
+
 def plant_sunflower_rect(width, height):
 	go_top_left()
 
