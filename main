@@ -2,7 +2,21 @@
 
 import goal
 import sunflower_boost
+import dinosaur_boost
+import pumpkin_mode
 
+def is_empty_cost(cost):
+	if cost == None:
+		return True
+
+	for item in cost:
+		return False
+
+	return True
+
+def ensure_normal_hat():
+	change_hat(Hats.Straw_Hat)
+	
 def go_top_left():
 	while get_pos_x() != 0:
 		move(West)
@@ -101,6 +115,10 @@ def run_farm(mode):
 					handle_wood_tile(x, y)
 				elif mode == "carrot":
 					handle_carrot_tile()
+				elif mode == "bone":
+					target_cost = target_info["cost"]
+					target_bones = target_cost[Items.Bone]
+					dinosaur_boost.run(target_bones)
 				else:
 					handle_wood_tile(x, y)
 
@@ -416,83 +434,101 @@ def harvest_pumpkin_field():
 	after = num_items(Items.Pumpkin)
 	return after - before
 
+def repair_and_check_pumpkin_field():
+	go_top_left()
+	size = get_world_size()
+
+	all_ready = True
+
+	y = 0
+	while y < size:
+		if y % 2 == 0:
+			x = 0
+			while x < size:
+				if not can_harvest():
+					plant_pumpkin_tile()
+					all_ready = False
+
+				if x < size - 1:
+					move(East)
+				x += 1
+		else:
+			x = size - 1
+			while x >= 0:
+				if not can_harvest():
+					plant_pumpkin_tile()
+					all_ready = False
+
+				if x > 0:
+					move(West)
+				x -= 1
+
+		if y < size - 1:
+			move(North)
+		y += 1
+
+	return all_ready
+
 def run_pumpkin():
 	maintain_pumpkin_field()
 
 	while True:
-		if all_grown_square(get_world_size()):
+		if repair_and_check_pumpkin_field():
 			return harvest_pumpkin_field()
 
-def get_auto_target_unlock():
-	i = 0
-	while i < len(goal.UNLOCK_ORDER):
-		candidate = goal.UNLOCK_ORDER[i]
-		cost = get_cost(candidate)
+def get_missing_map(cost):
+	missing = {}
 
-		if cost != None:
-			if len(cost) > 0:
-				return candidate
-
-		i += 1
-
-	return None
-
-def get_current_target_unlock():
-	if goal.AUTO_GOAL:
-		return get_auto_target_unlock()
-	return goal.TARGET_UNLOCK
-
-def get_target_cost():
-	target = get_current_target_unlock()
-
-	if target == None:
-		return None
-
-	if goal.AUTO_GOAL:
-		return get_cost(target)
-
-	if goal.TARGET_LEVEL == None:
-		return get_cost(target)
-
-	return get_cost(target, goal.TARGET_LEVEL)
-
-def print_goal_status():
-	target = get_current_target_unlock()
-	quick_print("target =", target)
-	quick_print("target level =", goal.TARGET_LEVEL)
-	quick_print("cost =", get_target_cost())
-
-def print_missing_status():
-	cost = get_target_cost()
-
-	if cost == None:
-		quick_print("missing = none")
-		return
-
-	if len(cost) == 0:
-		quick_print("missing = none")
-		return
+	if is_empty_cost(cost):
+		return missing
 
 	for item in cost:
-		missing = cost[item] - num_items(item)
-		if missing < 0:
-			missing = 0
-		quick_print(item, "need", cost[item], "have", num_items(item), "missing", missing)
+		diff = cost[item] - num_items(item)
+		if diff > 0:
+			missing[item] = diff
 
-def choose_mode_for_target():
-	cost = get_target_cost()
+	return missing
+	
+def print_goal_status(target_info):
+	quick_print("goal mode =", target_info["goal_mode"])
+	quick_print("target =", target_info["target"])
+	quick_print("target level =", target_info["target_level"])
+	quick_print("cost =", target_info["cost"])
+	
+	print("goal mode =", target_info["goal_mode"])
+	print("target =", target_info["target"])
+	print("target level =", target_info["target_level"])
+	print("cost =", target_info["cost"])
 
-	if cost == None:
-		return "wood"
+def print_missing_status(target_info):
+	cost = target_info["cost"]
 
-	if len(cost) == 0:
-		return "wood"
+	if is_empty_cost(cost):
+		quick_print("missing = none")
+		return
+
+	missing = get_missing_map(cost)
+
+	empty = True
+	for item in missing:
+		empty = False
+		quick_print(item, "need", cost[item], "have", num_items(item), "missing", missing[item])
+
+	if empty:
+		quick_print("missing = none")
+
+def choose_mode_for_target(target_info):
+	cost = target_info["cost"]
+
+	if is_empty_cost(cost):
+		return "idle"
 
 	hay_missing = 0
 	wood_missing = 0
 	carrot_missing = 0
 	pumpkin_missing = 0
 	cactus_missing = 0
+	bone_missing = 0
 
 	if Items.Hay in cost:
 		hay_missing = max(0, cost[Items.Hay] - num_items(Items.Hay))
@@ -509,80 +545,119 @@ def choose_mode_for_target():
 	if Items.Cactus in cost:
 		cactus_missing = max(0, cost[Items.Cactus] - num_items(Items.Cactus))
 
-	mode = "wood"
-	biggest_missing = wood_missing
+	if Items.Bone in cost:
+		bone_missing = max(0, cost[Items.Bone] - num_items(Items.Bone))
+
+	if bone_missing > 0:
+		return "bone"
+
+	mode = "idle"
+	biggest_missing = 0
 
 	if hay_missing > biggest_missing:
 		biggest_missing = hay_missing
 		mode = "hay"
+
+	if wood_missing > biggest_missing:
+		biggest_missing = wood_missing
+		mode = "wood"
 
 	if carrot_missing > biggest_missing:
 		biggest_missing = carrot_missing
 		mode = "carrot"
 
 	if pumpkin_missing > biggest_missing:
-		biggest_missing = pumpkin_missing
-		mode = "pumpkin"
+		if enough_for_pumpkin_mode():
+			biggest_missing = pumpkin_missing
+			mode = "pumpkin"
+		else:
+			# かぼちゃ準備が足りない間は、まず不足素材を作る
+			if num_items(Items.Hay) < 2500:
+				return "hay"
+			if num_items(Items.Wood) < 2500:
+				return "wood"
+			if num_items(Items.Carrot) < 1200:
+				return "carrot"
 
 	if cactus_missing > biggest_missing:
 		biggest_missing = cactus_missing
 		mode = "cactus"
 
 	return mode
-
-def try_unlock_target():
-	target = get_current_target_unlock()
+	
+def try_unlock_target(target_info):
+	target = target_info["target"]
+	cost = target_info["cost"]
+	level = target_info["target_level"]
 
 	if target == None:
 		return False
 
-	cost = get_target_cost()
-
-	if cost == None:
-		return False
-
-	if len(cost) == 0:
+	if is_empty_cost(cost):
 		return False
 
 	for item in cost:
 		if num_items(item) < cost[item]:
 			return False
 
-	unlock(target)
+	if level == None:
+		unlock(target)
+	else:
+		unlock(target, level)
+
 	return True
 
-POWER_MIN = 200
-
-print_goal_status()
-print_missing_status()
+target_info = goal.resolve_target()
+print_goal_status(target_info)
+print_missing_status(target_info)
 
 while True:
-	if try_unlock_target():
-		quick_print("unlocked =", get_current_target_unlock())
-		print_goal_status()
-		print_missing_status()
+	target_info = goal.resolve_target()
 
-	if num_items(Items.Power) < POWER_MIN:
+	if try_unlock_target(target_info):
+		quick_print("unlocked =", target_info["target"])
+		target_info = goal.resolve_target()
+		print_goal_status(target_info)
+		print_missing_status(target_info)
+
+	if sunflower_boost.should_refill():
 		quick_print("mode = sunflower_boost")
 		sunflower_boost.run()
 	else:
-		mode = choose_mode_for_target()
+		mode = choose_mode_for_target(target_info)
 		quick_print("mode =", mode)
 
 		if mode == "hay":
+			ensure_normal_hat()
 			run_farm("hay")
+
 		elif mode == "wood":
+			ensure_normal_hat()
 			run_farm("wood")
+
 		elif mode == "carrot":
+			ensure_normal_hat()
 			run_farm("carrot")
+
 		elif mode == "pumpkin":
+			ensure_normal_hat()
 			if enough_for_pumpkin_mode():
 				gained = run_pumpkin()
 				quick_print("pumpkin gained =", gained)
 			else:
-				run_farm("hay")
+				quick_print("pumpkin not ready")
+
 		elif mode == "cactus":
+			ensure_normal_hat()
 			gained = run_cactus()
 			quick_print("cactus gained =", gained)
+
+		elif mode == "bone":
+			target_cost = target_info["cost"]
+			target_bones = target_cost[Items.Bone]
+			quick_print("bone target =", target_bones, "have =", num_items(Items.Bone))
+			dinosaur_boost.run(target_bones)
+
 		else:
-			run_farm("wood")
+			ensure_normal_hat()
+			quick_print("mode = idle")
