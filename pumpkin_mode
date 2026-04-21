@@ -10,7 +10,7 @@ def dbg(*args):
 STEPS_PER_CALL = 80
 
 # state = [idx, phase, repaired_in_lap, all_pumpkin_in_lap, all_harvestable_in_lap, lap_seen, size]
-# phase: 0=planting, 1=repair/grow, 2=harvest
+# phase: 0=planting, 1=repair/grow
 _state = [0, 0, 0, 1, 1, 0, 0]
 
 def go_top_left():
@@ -102,7 +102,7 @@ def step_tile(x, y):
 		_state[2] += 1
 		_state[3] = 0
 		_state[4] = 0
-		dbg("dead fixed at", x, y)  # ←追加
+		dbg("dead fixed at", x, y)
 		return
 
 	if t != Entities.Pumpkin:
@@ -150,21 +150,19 @@ def run(reset_field = False):
 			# 1周終わり：判定
 			_state[0] = 0
 
+			dbg("lap end: phase=", _state[1], "repaired=", _state[2], "all_pumpkin=", _state[3], "all_harvestable=", _state[4])
+
 			if _state[1] == 0:
 				# planting が1周終わったら repair/grow へ
 				_state[1] = 1
 				begin_new_lap()
-				# 以降は成熟待ち＆dead補修
 				return 0
 
 			# repair/grow の1周が終わった
-			# 全部 Pumpkin かつ 全部 harvestable なら収穫へ
 			if _state[3] == 1 and _state[4] == 1:
-				# 収穫は1回で良いことが多い（巨大カボチャ前提）
 				gained = harvest_once()
+				dbg("HARVEST TRIGGERED at", get_pos_x(), get_pos_y(), "gained=", gained)
 
-				# 次サイクル：収穫地点から planting を再開したいので
-				# インデックスだけ進めて planting に戻す
 				_state[1] = 0
 				begin_new_lap()
 				return gained
