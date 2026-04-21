@@ -205,7 +205,8 @@ while True:
 			if pumpkin_mode.enough_for_mode():
 				reset_field = last_mode != "pumpkin"
 				gained = pumpkin_mode.run(reset_field)
-				quick_print("pumpkin gained =", gained)
+				if gained > 0:
+					quick_print("pumpkin gained =", gained)
 			else:
 				quick_print("pumpkin not ready")
 	
