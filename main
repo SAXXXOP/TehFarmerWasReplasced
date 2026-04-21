@@ -3,7 +3,9 @@
 import goal
 import sunflower_boost
 import dinosaur_boost
-import pumpkin_mode
+import hay_mode
+import wood_mode
+import carrot_mode
 
 def is_empty_cost(cost):
 	if cost == None:
