@@ -1,10 +1,36 @@
 # sunflower_boost
 
+POWER_MIN = 200
 POWER_TARGET = 800
 
 WIDTH = 4
 HEIGHT = 5
 MIN_HARVESTABLE = 11
+
+def clear_field():
+	go_top_left()
+	size = get_world_size()
+
+	y = 0
+	while y < size:
+		if y % 2 == 0:
+			x = 0
+			while x < size:
+				clear()
+				if x < size - 1:
+					move(East)
+				x += 1
+		else:
+			x = size - 1
+			while x >= 0:
+				clear()
+				if x > 0:
+					move(West)
+				x -= 1
+
+		if y < size - 1:
+			move(North)
+		y += 1
 
 def go_top_left():
 	while get_pos_x() != 0:
@@ -142,7 +168,11 @@ def harvest_best_and_replant(width, height, best):
 
 	return harvested
 
+def should_refill():
+	return num_items(Items.Power) < POWER_MIN
+
 def run():
+	clear_field()
 	plant_sunflower_rect(WIDTH, HEIGHT)
 
 	while num_items(Items.Power) < POWER_TARGET:
