@@ -25,14 +25,6 @@ def go_top_left():
 	while get_pos_y() != 0:
 		move(South)
 
-def ensure_soil():
-	if get_ground_type() != Grounds.Soil:
-		till()
-
-def ensure_grass():
-	if get_ground_type() != Grounds.Grassland:
-		till()
-
 def reset_and_plant_cactus_square(size):
 	go_top_left()
 
@@ -63,89 +55,9 @@ def reset_and_plant_cactus_square(size):
 			move(North)
 		y += 1
 
-def plant_tree():
-	plant(Entities.Tree)
-
-def plant_grass():
-	ensure_grass()
-
-def water_if_needed():
-	if get_water() < 0.5:
-		if num_items(Items.Water) > 0:
-			use_item(Items.Water)
-
-def plant_carrot():
-	ensure_soil()
-	plant(Entities.Carrot)
-	water_if_needed()
-
 def plant_pumpkin_tile():
 	ensure_soil()
 	plant(Entities.Pumpkin)
-
-def handle_hay_tile():
-	if can_harvest():
-		harvest()
-	plant_grass()
-
-def handle_wood_tile(x, y):
-	if can_harvest():
-		harvest()
-
-	if (x + y) % 2 == 0:
-		plant_tree()
-	else:
-		plant_grass()
-
-def handle_carrot_tile():
-	if can_harvest():
-		harvest()
-	plant_carrot()
-
-def run_farm(mode):
-	go_top_left()
-	size = get_world_size()
-
-	y = 0
-	while y < size:
-		if y % 2 == 0:
-			x = 0
-			while x < size:
-				if mode == "hay":
-					handle_hay_tile()
-				elif mode == "wood":
-					handle_wood_tile(x, y)
-				elif mode == "carrot":
-					handle_carrot_tile()
-				elif mode == "bone":
-					target_cost = target_info["cost"]
-					target_bones = target_cost[Items.Bone]
-					dinosaur_boost.run(target_bones)
-				else:
-					handle_wood_tile(x, y)
-
-				if x < size - 1:
-					move(East)
-				x += 1
-		else:
-			x = size - 1
-			while x >= 0:
-				if mode == "hay":
-					handle_hay_tile()
-				elif mode == "wood":
-					handle_wood_tile(x, y)
-				elif mode == "carrot":
-					handle_carrot_tile()
-				else:
-					handle_wood_tile(x, y)
-
-				if x > 0:
-					move(West)
-				x -= 1
-
-		if y < size - 1:
-			move(North)
-		y += 1
 
 def all_grown_square(size):
 	go_top_left()
