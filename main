@@ -543,15 +543,15 @@ while True:
 
 		if mode == "hay":
 			ensure_normal_hat()
-			run_farm("hay")
-
+			hay_mode.run()
+		
 		elif mode == "wood":
 			ensure_normal_hat()
-			run_farm("wood")
-
+			wood_mode.run()
+		
 		elif mode == "carrot":
 			ensure_normal_hat()
-			run_farm("carrot")
+			carrot_mode.run()
 
 		elif mode == "pumpkin":
 			ensure_normal_hat()
