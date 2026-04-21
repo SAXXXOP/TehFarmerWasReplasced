@@ -23,7 +23,37 @@ def enough_for_mode():
 		return False
 	return True
 
-def plant_full_field():
+def all_grown_square(size):
+	go_top_left()
+
+	y = 0
+	while y < size:
+		if y % 2 == 0:
+			x = 0
+			while x < size:
+				if not can_harvest():
+					return False
+
+				if x < size - 1:
+					move(East)
+				x += 1
+		else:
+			x = size - 1
+			while x >= 0:
+				if not can_harvest():
+					return False
+
+				if x > 0:
+					move(West)
+				x -= 1
+
+		if y < size - 1:
+			move(North)
+		y += 1
+
+	return True
+
+def maintain_field():
 	go_top_left()
 	size = get_world_size()
 
@@ -49,41 +79,6 @@ def plant_full_field():
 		if y < size - 1:
 			move(North)
 		y += 1
-
-def repair_and_check_field():
-	go_top_left()
-	size = get_world_size()
-
-	all_ready = True
-
-	y = 0
-	while y < size:
-		if y % 2 == 0:
-			x = 0
-			while x < size:
-				if not can_harvest():
-					plant_pumpkin_tile()
-					all_ready = False
-
-				if x < size - 1:
-					move(East)
-				x += 1
-		else:
-			x = size - 1
-			while x >= 0:
-				if not can_harvest():
-					plant_pumpkin_tile()
-					all_ready = False
-
-				if x > 0:
-					move(West)
-				x -= 1
-
-		if y < size - 1:
-			move(North)
-		y += 1
-
-	return all_ready
 
 def harvest_field():
 	go_top_left()
@@ -118,8 +113,9 @@ def harvest_field():
 	return after - before
 
 def run():
-	plant_full_field()
+	maintain_field()
 
-	while True:
-		if repair_and_check_field():
-			return harvest_field()
+	if all_grown_square(get_world_size()):
+		return harvest_field()
+
+	return 0
