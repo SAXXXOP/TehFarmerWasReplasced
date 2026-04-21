@@ -1,0 +1,111 @@
+# dinosaur_boost
+
+DROP_HAT = Hats.Straw_Hat
+
+def go_top_left():
+	while get_pos_x() != 0:
+		move(West)
+	while get_pos_y() != 0:
+		move(South)
+
+def clear_field():
+	go_top_left()
+	size = get_world_size()
+
+	y = 0
+	while y < size:
+		if y % 2 == 0:
+			x = 0
+			while x < size:
+				clear()
+				if x < size - 1:
+					move(East)
+				x += 1
+		else:
+			x = size - 1
+			while x >= 0:
+				clear()
+				if x > 0:
+					move(West)
+				x -= 1
+
+		if y < size - 1:
+			move(North)
+		y += 1
+
+def build_loop_path():
+	size = get_world_size()
+	path = []
+
+	# 左1列を空けて、その右側から蛇行
+	path.append(East)
+
+	row = 0
+	while row < size:
+		if row % 2 == 0:
+			steps = size - 2
+			i = 0
+			while i < steps:
+				path.append(East)
+				i += 1
+		else:
+			steps = size - 2
+			i = 0
+			while i < steps:
+				path.append(West)
+				i += 1
+
+		if row < size - 1:
+			path.append(North)
+
+		row += 1
+
+	# 最上段から左の空き列へ戻る
+	path.append(West)
+
+	# 空き列を下って原点へ
+	i = 0
+	while i < size - 1:
+		path.append(South)
+		i += 1
+
+	return path
+
+def run_path_once(path):
+	i = 0
+	while i < len(path):
+		if not move(path[i]):
+			return False
+		i += 1
+	return True
+
+def prepare():
+	change_hat(DROP_HAT)
+	clear_field()
+	go_top_left()
+	change_hat(Hats.Dinosaur_Hat)
+
+def run_once():
+	path = build_loop_path()
+	prepare()
+
+	while True:
+		ok = run_path_once(path)
+		if not ok:
+			break
+
+	change_hat(DROP_HAT)
+	return num_items(Items.Bone)
+
+def run(target_bones = 10000):
+	while num_items(Items.Bone) < target_bones:
+		before = num_items(Items.Bone)
+		quick_print("bones have =", before, "target =", target_bones)
+
+		run_once()
+
+		after = num_items(Items.Bone)
+		quick_print("bones total =", after, "delta =", after - before)
+
+	change_hat(DROP_HAT)
+	quick_print("bones done =", num_items(Items.Bone))
