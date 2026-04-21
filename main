@@ -7,6 +7,7 @@ import hay_mode
 import wood_mode
 import carrot_mode
 import cactus_mode
+import pumpkin_mode
 
 def is_empty_cost(cost):
 	if cost == None:
