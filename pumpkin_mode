@@ -2,9 +2,26 @@
 
 DEBUG = True
 
-def dbg(*args):
-	if DEBUG:
-		print(*args)
+def dbg(a, b=None, c=None, d=None, e=None, f=None, g=None, h=None):
+	if not DEBUG:
+		return
+	# None は出さない
+	if h != None:
+		print(a, b, c, d, e, f, g, h)
+	elif g != None:
+		print(a, b, c, d, e, f, g)
+	elif f != None:
+		print(a, b, c, d, e, f)
+	elif e != None:
+		print(a, b, c, d, e)
+	elif d != None:
+		print(a, b, c, d)
+	elif c != None:
+		print(a, b, c)
+	elif b != None:
+		print(a, b)
+	else:
+		print(a)
 
 # 1回の run() で処理するマス数（重いなら下げる）
 STEPS_PER_CALL = 80
@@ -51,7 +68,7 @@ def build_scan_order(size):
 	return order
 
 def move_to(x, y):
-	# 近道で移動（毎回1マスずつ move するより速いことが多い）
+	# 近道で移動
 	while get_pos_x() < x:
 		move(East)
 	while get_pos_x() > x:
@@ -86,18 +103,14 @@ def step_tile(x, y):
 	t = get_entity_type()
 
 	if _state[1] == 0:
-		# planting phase: とにかく全面をパンプキンに揃える
+		# planting phase
 		if t != Entities.Pumpkin:
 			clear()
 			plant_here()
-		else:
-			# 既に Pumpkin なら触らない（成長リセット回避）
-			pass
 		return
 
 	# repair/grow phase
 	if t == Entities.Dead_Pumpkin:
-		# 仕様どおり：植えるだけで死骸が消える
 		plant_here()
 		_state[2] += 1
 		_state[3] = 0
@@ -106,7 +119,6 @@ def step_tile(x, y):
 		return
 
 	if t != Entities.Pumpkin:
-		# ひまわり等の残り → clearして置換
 		clear()
 		plant_here()
 		_state[2] += 1
@@ -114,8 +126,7 @@ def step_tile(x, y):
 		_state[4] = 0
 		return
 
-	# t == Entities.Pumpkin のとき
-	# ここでは未成熟でも触らない（植え直しで成長潰し防止）
+	# t == Entities.Pumpkin
 	if not can_harvest():
 		_state[4] = 0
 
@@ -136,7 +147,6 @@ def run(reset_field = False):
 		_state[0] = 0
 		begin_new_lap()
 
-	# 1回の呼び出しで少しだけ進める
 	steps = 0
 	while steps < STEPS_PER_CALL:
 		x, y = order[_state[0]]
@@ -146,28 +156,24 @@ def run(reset_field = False):
 
 		_state[0] += 1
 		_state[5] += 1
+
 		if _state[0] >= size * size:
-			# 1周終わり：判定
 			_state[0] = 0
 
 			dbg("lap end: phase=", _state[1], "repaired=", _state[2], "all_pumpkin=", _state[3], "all_harvestable=", _state[4])
 
 			if _state[1] == 0:
-				# planting が1周終わったら repair/grow へ
 				_state[1] = 1
 				begin_new_lap()
 				return 0
 
-			# repair/grow の1周が終わった
 			if _state[3] == 1 and _state[4] == 1:
 				gained = harvest_once()
-				dbg("HARVEST TRIGGERED at", get_pos_x(), get_pos_y(), "gained=", gained)
-
+				dbg("HARVEST TRIGGERED gained=", gained)
 				_state[1] = 0
 				begin_new_lap()
 				return gained
 
-			# まだ成熟してない／補修が必要：次周へ
 			begin_new_lap()
 
 		steps += 1
