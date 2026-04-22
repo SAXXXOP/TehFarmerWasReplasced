@@ -6,7 +6,7 @@ import mode_selector
 import dinosaur_boost
 import hay_mode_v2
 import wood_mode_v2
-import carrot_mode_v2_rect_fertilizer
+import carrot_mode_v2_rect_fert
 import pumpkin_mode_v2
 import cactus_mode_v2
 
