@@ -1,0 +1,23 @@
+# carrot_mode_v2_rect
+# 左下の一定範囲だけを回す軽量版
+
+import field_utils
+
+AREA_SIZE = 12
+
+def handle_tile(x, y):
+	t = get_entity_type()
+
+	if t == Entities.Carrot:
+		if can_harvest():
+			harvest()
+			field_utils.ensure_ground(Grounds.Soil)
+			plant(Entities.Carrot)
+		return
+
+	clear()
+	field_utils.ensure_ground(Grounds.Soil)
+	plant(Entities.Carrot)
+
+def run():
+	field_utils.snake_walk_rect(AREA_SIZE, AREA_SIZE, handle_tile)
