@@ -1,0 +1,12 @@
+# hay_mode_v2
+
+import field_utils
+
+def handle_tile(x, y):
+	if can_harvest():
+		harvest()
+
+	field_utils.ensure_ground(Grounds.Grassland)
+
+def run():
+	field_utils.snake_walk(handle_tile)
