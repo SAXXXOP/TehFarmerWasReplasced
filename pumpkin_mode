@@ -180,16 +180,17 @@ def do_tile_action():
 def harvest_at(x, y):
 	go_to(x, y)
 
-	t = get_entity_type()
-	ch = can_harvest()
-	mv = measure()
+	# ここは安全確認だけ（最大化判定は周回で済ませる）
+	if get_entity_type() != Entities.Pumpkin:
+		dbg("HARVEST_SKIP: not pumpkin at (" + i2s(x) + "," + i2s(y) + ") entity=" + str(get_entity_type()))
+		return 0
 
 	before = num_items(Items.Pumpkin)
 	harvest()
 	after = num_items(Items.Pumpkin)
 	gained = after - before
 
-	dbg("HARVEST_CHECK: pos=(" + i2s(x) + "," + i2s(y) + ") entity=" + str(t) + " can_harvest=" + str(ch) + " measure=" + str(mv) + " gained=" + str(gained))
+	dbg("HARVEST: pos=(" + i2s(x) + "," + i2s(y) + ") gained=" + str(gained))
 	return gained
 
 
