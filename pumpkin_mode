@@ -319,10 +319,17 @@ def run(reset_field=False):
 				gained = harvest_at(_S[8], _S[9])
 
 				if gained > 0:
-					# 収穫成功 → 次サイクル（PLANTへ）
+					# 収穫成功 → その場で次サイクルの植え付けまで進める
 					_S[0] = PHASE_PLANT
 					_S[12] = 0
 					reset_lap()
+
+					plant_full_force()
+
+					_S[0] = PHASE_REPAIR
+					_S[12] = 0
+					reset_lap()
+					start_repair_lap()
 					return gained
 
 				# 収穫0は成熟待ち：REPAIR続行（安定カウント維持）
