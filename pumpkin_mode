@@ -156,14 +156,18 @@ def plant_full_force():
 		if y % 2 == 0:
 			x = 0
 			while x < size:
-				plant_here_force()
+				ensure_soil()
+				plant(Entities.Pumpkin)
+
 				if x < size - 1:
 					move(East)
 				x += 1
 		else:
 			x = size - 1
 			while x >= 0:
-				plant_here_force()
+				ensure_soil()
+				plant(Entities.Pumpkin)
+
 				if x > 0:
 					move(West)
 				x -= 1
@@ -172,7 +176,6 @@ def plant_full_force():
 			move(North)
 		y += 1
 
-	# state同期（念のため）
 	sync_state_pos()
 
 
