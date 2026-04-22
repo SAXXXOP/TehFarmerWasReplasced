@@ -1,17 +1,12 @@
-# pumpkin_mode (FULL REPLACE)  ※ベース: あなたの貼った版
-# - PLANT: 二重ループ蛇行で「全面植え付けを一気に完了」（列飛ばし事故を根絶）
-# - REPAIR: Deadだけ植え替え / Pumpkinで harvestable を best_measure で選ぶ
-# - REPAIRの各周回は必ず(0,0) dir=1 から開始（端スタート事故防止）
-# - 連続で「修理なし」の周回が MIN_STABLE_LAPS 回たまったら収穫する
-# - 収穫が0なら成熟待ちとしてREPAIR継続（PLANTに戻らない）
-# - 収穫成功後は(0,0)へ戻らず、そのまま次サイクルへ（あなたの意図どおり）
+# pumpkin_mode (FULL) — PLANT_FULL で「ひまわり含め何が植わってても」必ずパンプキン化（検証付き）
 
 DEBUG = True
 
 PHASE_PLANT = 0
 PHASE_REPAIR = 1
 
-MIN_STABLE_LAPS = 1  # あなたの現状に合わせる（必要なら後で戻す）
+# 安定確認（必要なら増やす）
+MIN_STABLE_LAPS = 1
 
 
 def dbg(msg):
@@ -56,24 +51,6 @@ def go_to(x, y):
 def ensure_soil():
 	if get_ground_type() != Grounds.Soil:
 		till()
-
-def make_empty():
-	t = get_entity_type()
-
-	# 空なら何もしない（最大化収穫後はほぼここに入る）
-	if t == None:
-		return
-
-	# 収穫できるなら harvest（clearで消えない対象対策）
-	if can_harvest():
-		harvest()
-	else:
-		clear()
-
-def plant_here_force():
-	make_empty()
-	ensure_soil()
-	plant(Entities.Pumpkin)
 
 def enough_for_mode():
 	if num_items(Items.Hay) < 2500:
@@ -140,24 +117,53 @@ def step_next():
 
 
 def start_repair_lap():
-	# ★重要：REPAIR周回は必ず(0,0)・右向きから
+	# REPAIR周回は必ず(0,0)・右向きから
 	go_to(0, 0)
 	_S[4] = 1
 
 
-# ---- ここが本件：PLANTは「二重ループ蛇行」で一気に全面植え付け ----
-def plant_full_force():
-	# (0,0)へ
-	go_to(0, 0)
+# ---- ここが本件：何が植わっていようと、必ず Pumpkin を植える（検証付き） ----
+def force_pumpkin_here():
+	# 1) 収穫できるなら harvest、できなければ clear
+	if can_harvest():
+		harvest()
+	else:
+		clear()
 
+	# 2) soil化して植える
+	ensure_soil()
+	plant(Entities.Pumpkin)
+
+	# 3) 失敗したらもう1回だけリトライ
+	if get_entity_type() != Entities.Pumpkin:
+		clear()
+		ensure_soil()
+		plant(Entities.Pumpkin)
+
+
+def plant_full_force():
+	# 左下から必ず開始
+	go_to(0, 0)
 	size = get_world_size()
+
+	ok = 0
+	fail = 0
+	fail_printed = 0
+
 	y = 0
 	while y < size:
 		if y % 2 == 0:
 			x = 0
 			while x < size:
-				ensure_soil()
-				plant(Entities.Pumpkin)
+				force_pumpkin_here()
+
+				if get_entity_type() == Entities.Pumpkin:
+					ok += 1
+				else:
+					fail += 1
+					if fail_printed < 20:
+						print("PLANT_FAIL at", get_pos_x(), get_pos_y(), "entity=", get_entity_type(), "ground=", get_ground_type())
+						fail_printed += 1
 
 				if x < size - 1:
 					move(East)
@@ -165,8 +171,15 @@ def plant_full_force():
 		else:
 			x = size - 1
 			while x >= 0:
-				ensure_soil()
-				plant(Entities.Pumpkin)
+				force_pumpkin_here()
+
+				if get_entity_type() == Entities.Pumpkin:
+					ok += 1
+				else:
+					fail += 1
+					if fail_printed < 20:
+						print("PLANT_FAIL at", get_pos_x(), get_pos_y(), "entity=", get_entity_type(), "ground=", get_ground_type())
+						fail_printed += 1
 
 				if x > 0:
 					move(West)
@@ -176,21 +189,21 @@ def plant_full_force():
 			move(North)
 		y += 1
 
+	print("PLANT_FULL_RESULT ok=", ok, "fail=", fail)
 	sync_state_pos()
 
 
 def do_tile_action_repair_only():
-	# REPAIRだけ（PLANTは plant_full_force() が担当）
 	t = get_entity_type()
 
-	# dead は植えるだけで除去される
+	# dead は植えるだけで除去
 	if t == Entities.Dead_Pumpkin:
 		ensure_soil()
 		plant(Entities.Pumpkin)
 		_S[6] += 1
 		return
 
-	# Pumpkin かつ can_harvest のときだけ、best_measure を採用
+	# Pumpkin かつ can_harvest のときだけ候補更新（best_measure採用）
 	if t == Entities.Pumpkin:
 		if can_harvest():
 			mv = measure()
@@ -201,14 +214,13 @@ def do_tile_action_repair_only():
 				_S[9] = get_pos_y()
 		return
 
-	# Grass等は触らない（成長/合体待ちの可能性）
+	# Grass等は触らない
 	return
 
 
 def harvest_at(x, y):
 	go_to(x, y)
 
-	# 安全確認だけ（最大化判定は周回で済ませる）
 	if get_entity_type() != Entities.Pumpkin:
 		dbg("HARVEST_SKIP: not pumpkin at (" + i2s(x) + "," + i2s(y) + ") entity=" + str(get_entity_type()))
 		return 0
@@ -235,8 +247,6 @@ def run(reset_field=False):
 	if _S[0] == PHASE_PLANT:
 		dbg("run: phase=0 (PLANT_FULL) lap=" + i2s(_S[10]) + " stable=" + i2s(_S[12]))
 		plant_full_force()
-
-		# ログ合わせ：phase=0のlap endを出す
 		dbg("lap end: phase=0 repaired=0 harvest_found=0 best_measure=-1 stable=" + i2s(_S[12]) + " lap=" + i2s(_S[10]))
 
 		# 植え付け完了 → REPAIRへ
@@ -247,7 +257,6 @@ def run(reset_field=False):
 		return 0
 
 	# ===== REPAIR =====
-	# REPAIR周回開始時は必ず開始点固定
 	if _S[0] == PHASE_REPAIR and _S[5] == 0:
 		start_repair_lap()
 
@@ -288,11 +297,6 @@ def run(reset_field=False):
 				if gained > 0:
 					# 収穫成功 → 次サイクル（PLANTへ）
 					_S[0] = PHASE_PLANT
-
-					# ★無駄な移動を消す：戻らない（あなたの現行と同じ）
-					# go_to(0, 0)
-					# _S[4] = 1
-
 					_S[12] = 0
 					reset_lap()
 					return gained
