@@ -176,56 +176,74 @@ while True:
 		print_goal_status(target_info)
 		print_missing_status(target_info)
 
-	if sunflower_boost.should_refill() and sunflower_boost.can_run():
+	# 先に必要モードを決める
+	mode = choose_mode_for_target(target_info)
+
+	# pumpkin 中は先頭の sunflower 割り込みを止める
+	allow_sunflower_before_mode = (mode != "pumpkin")
+
+	if allow_sunflower_before_mode and sunflower_boost.should_refill() and sunflower_boost.can_run():
 		quick_print("mode = sunflower_boost")
 		sunflower_boost.run()
 		last_mode = "sunflower_boost"
 	else:
-		mode = choose_mode_for_target(target_info)
-	
-		if sunflower_boost.should_refill() and not sunflower_boost.can_run():
+		if (not allow_sunflower_before_mode) and sunflower_boost.should_refill():
+			quick_print("sunflower deferred until after pumpkin harvest")
+
+		if sunflower_boost.should_refill() and not sunflower_boost.can_run() and allow_sunflower_before_mode:
 			quick_print("sunflower not ready")
-	
+
 		quick_print("mode =", mode)
-	
+
+		next_last_mode = mode
+
 		if mode == "hay":
 			ensure_normal_hat()
 			hay_mode.run()
-	
+
 		elif mode == "wood":
 			ensure_normal_hat()
 			wood_mode.run()
-	
+
 		elif mode == "carrot":
 			ensure_normal_hat()
 			carrot_mode.run()
-	
+
 		elif mode == "pumpkin":
 			ensure_normal_hat()
 			if pumpkin_mode.enough_for_mode():
-				# main の pumpkin 分岐の中
 				reset_field = last_mode != "pumpkin"
 				if reset_field:
 					quick_print("pumpkin enter: reset_field=", reset_field, "last_mode=", last_mode)
+
 				gained = pumpkin_mode.run(reset_field)
+
 				if gained > 0:
 					quick_print("pumpkin gained =", gained)
+
+					# 最大化して収穫した直後だけ sunflower に入る
+					if sunflower_boost.should_refill() and sunflower_boost.can_run():
+						quick_print("mode = sunflower_boost (after pumpkin harvest)")
+						sunflower_boost.run()
+						next_last_mode = "sunflower_boost"
+					elif sunflower_boost.should_refill():
+						quick_print("sunflower wanted after pumpkin harvest but not ready")
 			else:
 				quick_print("pumpkin not ready")
-	
+
 		elif mode == "cactus":
 			ensure_normal_hat()
 			gained = cactus_mode.run()
 			quick_print("cactus gained =", gained)
-	
+
 		elif mode == "bone":
 			target_cost = target_info["cost"]
 			target_bones = target_cost[Items.Bone]
 			quick_print("bone target =", target_bones, "have =", num_items(Items.Bone))
 			dinosaur_boost.run(target_bones)
-	
+
 		else:
 			ensure_normal_hat()
 			quick_print("mode = idle")
 
-		last_mode = mode
+		last_mode = next_last_mode
