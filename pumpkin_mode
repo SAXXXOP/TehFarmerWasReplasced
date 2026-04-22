@@ -138,15 +138,14 @@ def do_tile_action():
 		return
 
 	# ここに来たら t == Entities.Pumpkin
-	# 収穫候補は「Pumpkin かつ can_harvest==True」のときだけ（Grassを絶対拾わない）
 	if can_harvest():
+		px = get_pos_x()
+		py = get_pos_y()
 		mv = measure()
-		# Grass は measure=None（ログで確定）なので弾く
-		if mv != None:
-			dbg("CANDIDATE: pos=(" + i2s(_state[2]) + "," + i2s(_state[3]) + ") entity=" + str(t) + " can_harvest=True measure=" + str(mv))
-			_state[7] = 1
-			_state[8] = _state[2]
-			_state[9] = _state[3]
+		dbg("CANDIDATE_REALPOS: state=(" + i2s(_state[2]) + "," + i2s(_state[3]) + ") real=(" + i2s(px) + "," + i2s(py) + ") entity=" + str(t) + " measure=" + str(mv))
+		_state[7] = 1
+		_state[8] = px
+		_state[9] = py
 		return
 
 	# 未成熟は触らない
