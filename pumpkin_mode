@@ -242,6 +242,22 @@ def harvest_at(x, y):
 	dbg("HARVEST: pos=(" + i2s(x) + "," + i2s(y) + ") gained=" + str(gained))
 	return gained
 
+def finish_harvest_and_replant(gained, tag):
+	dbg("HARVEST_OK(" + tag + ") -> REPLANT_START")
+
+	_S[0] = PHASE_PLANT
+	_S[12] = 0
+	reset_lap()
+
+	plant_full_force()
+
+	dbg("REPLANT_DONE(" + tag + ") -> REPAIR_START")
+	_S[0] = PHASE_REPAIR
+	_S[12] = 0
+	reset_lap()
+	start_repair_lap()
+	return gained
+
 
 def run(reset_field=False):
 	init_if_needed()
@@ -280,10 +296,7 @@ def run(reset_field=False):
 			gained = harvest_at(_S[8], _S[9])
 
 			if gained > 0:
-				_S[0] = PHASE_PLANT
-				_S[12] = 0
-				reset_lap()
-				return gained
+				return finish_harvest_and_replant(gained, "full")
 
 			# 収穫0なら成熟待ち扱いでREPAIR継続
 			reset_lap()
@@ -314,24 +327,12 @@ def run(reset_field=False):
 				start_repair_lap()
 				return 0
 
-			# 安定が溜まったら候補があるときだけ収穫
+						# 安定が溜まったら候補があるときだけ収穫
 			if _S[7] == 1:
 				gained = harvest_at(_S[8], _S[9])
 
 				if gained > 0:
-					# 収穫成功 → その場で全面再植え付けしてからREPAIRへ戻す
-					dbg("HARVEST_OK -> REPLANT_START")
-					_S[0] = PHASE_PLANT
-					_S[12] = 0
-					reset_lap()
-
-					plant_full_force()
-
-					_S[0] = PHASE_REPAIR
-					_S[12] = 0
-					reset_lap()
-					start_repair_lap()
-					return gained
+					return finish_harvest_and_replant(gained, "best")
 
 				# 収穫0は成熟待ち：REPAIR続行（安定カウント維持）
 				reset_lap()
