@@ -139,10 +139,12 @@ def do_tile_action():
 
 	# Pumpkin
 	if can_harvest():
-		_state[7] = 1
-		_state[8] = _state[2]
-		_state[9] = _state[3]
-		# 収穫は周回末尾で（修理なし条件とセットで）
+		mv = measure()
+		# Grass など「収穫できるけどカボチャじゃない」を除外（ログで measure=None を確認済み）
+		if mv != None:
+			_state[7] = 1
+			_state[8] = _state[2]
+			_state[9] = _state[3]
 		return
 
 	# 未成熟は触らない
