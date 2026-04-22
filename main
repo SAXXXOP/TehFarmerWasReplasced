@@ -166,6 +166,7 @@ print_goal_status(target_info)
 print_missing_status(target_info)
 
 last_mode = "idle"
+pumpkin_flow_active = False
 
 while True:
 	target_info = goal.resolve_target()
@@ -179,15 +180,22 @@ while True:
 	# 先に必要モードを決める
 	mode = choose_mode_for_target(target_info)
 
-	# pumpkin 中は先頭の sunflower 割り込みを止める
-	allow_sunflower_before_mode = (mode != "pumpkin")
+	# pumpkin 以外に移ったら、pumpkin セッション終了
+	if mode != "pumpkin":
+		pumpkin_flow_active = False
+
+	# pumpkin のときは「未開始」の間だけ sunflower を許可
+	if mode == "pumpkin":
+		allow_sunflower_before_mode = (not pumpkin_flow_active)
+	else:
+		allow_sunflower_before_mode = True
 
 	if allow_sunflower_before_mode and sunflower_boost.should_refill() and sunflower_boost.can_run():
 		quick_print("mode = sunflower_boost")
 		sunflower_boost.run()
 		last_mode = "sunflower_boost"
 	else:
-		if (not allow_sunflower_before_mode) and sunflower_boost.should_refill():
+		if mode == "pumpkin" and pumpkin_flow_active and sunflower_boost.should_refill():
 			quick_print("sunflower deferred until after pumpkin harvest")
 
 		if sunflower_boost.should_refill() and not sunflower_boost.can_run() and allow_sunflower_before_mode:
@@ -212,9 +220,13 @@ while True:
 		elif mode == "pumpkin":
 			ensure_normal_hat()
 			if pumpkin_mode.enough_for_mode():
-				reset_field = last_mode != "pumpkin" and last_mode != "sunflower_boost"
+				# pumpkin セッションの最初の1回だけ field reset
+				reset_field = (not pumpkin_flow_active)
 				if reset_field:
 					quick_print("pumpkin enter: reset_field=", reset_field, "last_mode=", last_mode)
+
+				# ここから pumpkin セッション開始
+				pumpkin_flow_active = True
 
 				gained = pumpkin_mode.run(reset_field)
 
