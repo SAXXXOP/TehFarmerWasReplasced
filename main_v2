@@ -63,7 +63,7 @@ while True:
 
 	elif mode == "carrot":
 		ensure_normal_hat()
-		carrot_mode_v2_rect_fertilizer.run()
+		carrot_mode_v2_fert.run()
 
 	elif mode == "pumpkin":
 		ensure_normal_hat()
