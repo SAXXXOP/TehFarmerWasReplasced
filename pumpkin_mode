@@ -108,8 +108,10 @@ def step_next_position():
 		_state[4] = -dir
 		return
 
-	# 最上段まで来た（周回終端）。位置はそのまま
-
+	# 最上段まで来た（周回終端）
+	# 同じマスでループしないように、周回を強制終了させる
+	_state[5] = size * size
+	return
 
 def do_tile_action():
 	# その場のタイルを処理する
@@ -139,13 +141,17 @@ def do_tile_action():
 
 	# ここに来たら t == Entities.Pumpkin
 	if can_harvest():
-		px = get_pos_x()
-		py = get_pos_y()
-		mv = measure()
-		dbg("CANDIDATE_REALPOS: state=(" + i2s(_state[2]) + "," + i2s(_state[3]) + ") real=(" + i2s(px) + "," + i2s(py) + ") entity=" + str(t) + " measure=" + str(mv))
-		_state[7] = 1
-		_state[8] = px
-		_state[9] = py
+		# 候補は周回中に何度も上書きしない（ログ連打防止＆安定）
+		if _state[7] == 0:
+			mv = measure()
+			# Grass は measure=None（ログで確定）なので弾く
+			if mv != None:
+				px = get_pos_x()
+				py = get_pos_y()
+				dbg("CANDIDATE_REALPOS: state=(" + i2s(_state[2]) + "," + i2s(_state[3]) + ") real=(" + i2s(px) + "," + i2s(py) + ") entity=" + str(t) + " measure=" + str(mv))
+				_state[7] = 1
+				_state[8] = px
+				_state[9] = py
 		return
 
 	# 未成熟は触らない
