@@ -166,7 +166,8 @@ print_goal_status(target_info)
 print_missing_status(target_info)
 
 last_mode = "idle"
-pumpkin_flow_active = False
+pumpkin_field_ready = False
+pumpkin_mid_cycle = False
 
 while True:
 	target_info = goal.resolve_target()
@@ -177,16 +178,16 @@ while True:
 		print_goal_status(target_info)
 		print_missing_status(target_info)
 
-	# 先に必要モードを決める
 	mode = choose_mode_for_target(target_info)
 
-	# pumpkin 以外に移ったら、pumpkin セッション終了
+	# pumpkin 以外へ移るなら、その畑前提は捨てる
 	if mode != "pumpkin":
-		pumpkin_flow_active = False
+		pumpkin_field_ready = False
+		pumpkin_mid_cycle = False
 
-	# pumpkin のときは「未開始」の間だけ sunflower を許可
+	# pumpkin 中だけ、収穫前の途中なら sunflower を止める
 	if mode == "pumpkin":
-		allow_sunflower_before_mode = (not pumpkin_flow_active)
+		allow_sunflower_before_mode = (not pumpkin_mid_cycle)
 	else:
 		allow_sunflower_before_mode = True
 
@@ -195,7 +196,7 @@ while True:
 		sunflower_boost.run()
 		last_mode = "sunflower_boost"
 	else:
-		if mode == "pumpkin" and pumpkin_flow_active and sunflower_boost.should_refill():
+		if mode == "pumpkin" and pumpkin_mid_cycle and sunflower_boost.should_refill():
 			quick_print("sunflower deferred until after pumpkin harvest")
 
 		if sunflower_boost.should_refill() and not sunflower_boost.can_run() and allow_sunflower_before_mode:
@@ -220,20 +221,26 @@ while True:
 		elif mode == "pumpkin":
 			ensure_normal_hat()
 			if pumpkin_mode.enough_for_mode():
-				# pumpkin セッションの最初の1回だけ field reset
-				reset_field = (not pumpkin_flow_active)
+				# 畑がまだ出来ていない最初の1回だけ reset
+				reset_field = (not pumpkin_field_ready)
 				if reset_field:
 					quick_print("pumpkin enter: reset_field=", reset_field, "last_mode=", last_mode)
 
-				# ここから pumpkin セッション開始
-				pumpkin_flow_active = True
+				# ここから収穫まで sunflower 割り込み禁止
+				pumpkin_mid_cycle = True
 
 				gained = pumpkin_mode.run(reset_field)
+
+				# 一度でも pumpkin に入ったら畑は準備済み扱い
+				pumpkin_field_ready = True
 
 				if gained > 0:
 					quick_print("pumpkin gained =", gained)
 
-					# 最大化して収穫した直後だけ sunflower に入る
+					# 収穫したので「途中状態」は解除
+					pumpkin_mid_cycle = False
+
+					# 収穫直後だけ sunflower に入る
 					if sunflower_boost.should_refill() and sunflower_boost.can_run():
 						quick_print("mode = sunflower_boost (after pumpkin harvest)")
 						sunflower_boost.run()
