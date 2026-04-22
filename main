@@ -233,11 +233,10 @@ while True:
 
 				gained = pumpkin_mode.run(reset_field)
 				
+				gained = pumpkin_mode.run(reset_field)
+
 				pumpkin_field_ready = True
 				pumpkin_rebuild_needed = False
-
-				# 一度でも pumpkin に入ったら畑は準備済み扱い
-				pumpkin_field_ready = True
 
 				if gained > 0:
 					quick_print("pumpkin gained =", gained)
