@@ -1,0 +1,25 @@
+# carrot_mode_v2
+# まずは「壊れにくい全面ニンジン版」
+# - 全面を蛇行走査
+# - 収穫できるニンジンは収穫して植え直す
+# - ニンジンでない場所は土にして植える
+# - 未成熟ニンジンはそのまま待つ
+
+import field_utils
+
+def handle_tile(x, y):
+	t = get_entity_type()
+
+	if t == Entities.Carrot:
+		if can_harvest():
+			harvest()
+			field_utils.ensure_ground(Grounds.Soil)
+			plant(Entities.Carrot)
+		return
+
+	clear()
+	field_utils.ensure_ground(Grounds.Soil)
+	plant(Entities.Carrot)
+
+def run():
+	field_utils.snake_walk(handle_tile)
