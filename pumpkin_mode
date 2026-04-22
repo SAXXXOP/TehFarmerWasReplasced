@@ -24,7 +24,7 @@ def i2s(n):
 # 4  dir (1=E, -1=W)
 # 5  steps_in_lap
 # 6  repaired_in_lap
-# 7  harvest_found
+# 7  harvest_found (0=none, 1=best candidate, 2=full-map ready)
 # 8  hx
 # 9  hy
 # 10 lap
@@ -207,6 +207,15 @@ def do_tile_action_repair_only():
 	if t == Entities.Pumpkin:
 		if can_harvest():
 			mv = measure()
+
+			# フィールド全体サイズの完成候補を見つけたら最優先
+			if mv != None and mv == _S[1] * _S[1]:
+				_S[11] = mv
+				_S[7] = 2
+				_S[8] = get_pos_x()
+				_S[9] = get_pos_y()
+				return
+
 			if mv != None and mv > _S[11]:
 				_S[11] = mv
 				_S[7] = 1
@@ -265,6 +274,21 @@ def run(reset_field=False):
 	while True:
 		do_tile_action_repair_only()
 		_S[5] += 1
+
+		# フルサイズ候補が見つかったら、その場で即収穫して次サイクルへ
+		if _S[7] == 2:
+			gained = harvest_at(_S[8], _S[9])
+
+			if gained > 0:
+				_S[0] = PHASE_PLANT
+				_S[12] = 0
+				reset_lap()
+				return gained
+
+			# 収穫0なら成熟待ち扱いでREPAIR継続
+			reset_lap()
+			start_repair_lap()
+			return 0
 
 		if at_end_of_lap():
 			dbg("lap end: phase=1"
