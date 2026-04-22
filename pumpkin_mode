@@ -115,6 +115,10 @@ def step_next_position():
 	# 最上段まで来た（周回終端）
 	# 同じマスでループしないように、周回を強制終了させる
 	_state[5] = size * size
+
+	_state[2] = get_pos_x()
+	_state[3] = get_pos_y()
+	
 	return
 
 def do_tile_action():
