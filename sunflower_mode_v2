@@ -1,5 +1,6 @@
 # sunflower_mode_v2
 # 左上 4x4 でひまわりを育てて、power が目標に達するまで回す
+# ネスト関数 / global を使わない安全版
 
 import field_utils
 
@@ -8,7 +9,7 @@ AREA_SIZE = 4
 def go_rect_top_left():
 	field_utils.go_top_left()
 
-def walk_rect(callback):
+def plant_rect():
 	go_rect_top_left()
 
 	y = 0
@@ -16,14 +17,26 @@ def walk_rect(callback):
 		if y % 2 == 0:
 			x = 0
 			while x < AREA_SIZE:
-				callback(x, y)
+				if get_entity_type() != Entities.Sunflower:
+					if can_harvest():
+						harvest()
+					else:
+						clear()
+					plant(Entities.Sunflower)
+
 				if x < AREA_SIZE - 1:
 					move(East)
 				x += 1
 		else:
 			x = AREA_SIZE - 1
 			while x >= 0:
-				callback(x, y)
+				if get_entity_type() != Entities.Sunflower:
+					if can_harvest():
+						harvest()
+					else:
+						clear()
+					plant(Entities.Sunflower)
+
 				if x > 0:
 					move(West)
 				x -= 1
@@ -32,50 +45,81 @@ def walk_rect(callback):
 			move(South)
 		y += 1
 
-def plant_rect():
-	def handle_tile(x, y):
-		if get_entity_type() != Entities.Sunflower:
-			if can_harvest():
-				harvest()
-			else:
-				clear()
-			plant(Entities.Sunflower)
+def all_sunflowers_harvestable():
+	go_rect_top_left()
 
-	walk_rect(handle_tile)
+	y = 0
+	while y < AREA_SIZE:
+		if y % 2 == 0:
+			x = 0
+			while x < AREA_SIZE:
+				if get_entity_type() != Entities.Sunflower:
+					return False
+				if not can_harvest():
+					return False
+
+				if x < AREA_SIZE - 1:
+					move(East)
+				x += 1
+		else:
+			x = AREA_SIZE - 1
+			while x >= 0:
+				if get_entity_type() != Entities.Sunflower:
+					return False
+				if not can_harvest():
+					return False
+
+				if x > 0:
+					move(West)
+				x -= 1
+
+		if y < AREA_SIZE - 1:
+			move(South)
+		y += 1
+
+	return True
 
 def find_best_petals():
 	best = -1
 	best_x = 0
 	best_y = 0
 
-	def handle_tile(x, y):
-		global _tmp_best, _tmp_x, _tmp_y
-		p = measure()
-		if p != None and p > _tmp_best:
-			_tmp_best = p
-			_tmp_x = get_pos_x()
-			_tmp_y = get_pos_y()
+	go_rect_top_left()
 
-	global _tmp_best, _tmp_x, _tmp_y
-	_tmp_best = -1
-	_tmp_x = 0
-	_tmp_y = 0
+	y = 0
+	while y < AREA_SIZE:
+		if y % 2 == 0:
+			x = 0
+			while x < AREA_SIZE:
+				if get_entity_type() == Entities.Sunflower and can_harvest():
+					p = measure()
+					if p != None and p > best:
+						best = p
+						best_x = get_pos_x()
+						best_y = get_pos_y()
 
-	walk_rect(handle_tile)
-	return _tmp_best, _tmp_x, _tmp_y
+				if x < AREA_SIZE - 1:
+					move(East)
+				x += 1
+		else:
+			x = AREA_SIZE - 1
+			while x >= 0:
+				if get_entity_type() == Entities.Sunflower and can_harvest():
+					p = measure()
+					if p != None and p > best:
+						best = p
+						best_x = get_pos_x()
+						best_y = get_pos_y()
 
-def all_sunflowers_harvestable():
-	ready = True
+				if x > 0:
+					move(West)
+				x -= 1
 
-	def handle_tile(x, y):
-		global _tmp_ready
-		if get_entity_type() != Entities.Sunflower or not can_harvest():
-			_tmp_ready = False
+		if y < AREA_SIZE - 1:
+			move(South)
+		y += 1
 
-	global _tmp_ready
-	_tmp_ready = True
-	walk_rect(handle_tile)
-	return _tmp_ready
+	return best, best_x, best_y
 
 def run(target_power):
 	while num_items(Items.Power) < target_power:
