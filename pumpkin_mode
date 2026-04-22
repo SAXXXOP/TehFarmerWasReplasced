@@ -2,26 +2,22 @@
 
 DEBUG = True
 
-def dbg(a, b=None, c=None, d=None, e=None, f=None, g=None, h=None):
-	if not DEBUG:
-		return
-	# None は出さない
-	if h != None:
-		print(a, b, c, d, e, f, g, h)
-	elif g != None:
-		print(a, b, c, d, e, f, g)
-	elif f != None:
-		print(a, b, c, d, e, f)
-	elif e != None:
-		print(a, b, c, d, e)
-	elif d != None:
-		print(a, b, c, d)
-	elif c != None:
-		print(a, b, c)
-	elif b != None:
-		print(a, b)
-	else:
-		print(a)
+# 1タイルごとの詳細ログを出すか
+TRACE_TILE = True
+
+# 1回の run() 呼び出しで、最初の何ステップだけ詳細ログを出すか（出しすぎ防止）
+TRACE_LIMIT_PER_CALL = 30
+
+
+def dbg_line(msg):
+	if DEBUG:
+		print(msg)
+
+
+def i2s(n):
+	# 文字列化ヘルパ（この環境でstr()が使える想定）
+	return str(n)
+
 
 # 1回の run() で処理するマス数（重いなら下げる）
 STEPS_PER_CALL = 80
@@ -30,15 +26,11 @@ STEPS_PER_CALL = 80
 # phase: 0=planting, 1=repair/grow
 _state = [0, 0, 0, 1, 1, 0, 0]
 
-def go_top_left():
-	while get_pos_x() != 0:
-		move(West)
-	while get_pos_y() != 0:
-		move(South)
 
 def ensure_soil():
 	if get_ground_type() != Grounds.Soil:
 		till()
+
 
 def enough_for_mode():
 	if num_items(Items.Hay) < 2500:
@@ -48,6 +40,7 @@ def enough_for_mode():
 	if num_items(Items.Carrot) < 1200:
 		return False
 	return True
+
 
 def build_scan_order(size):
 	# (0,0) から蛇行して size*size マスを1回ずつ訪問する座標列
@@ -67,8 +60,8 @@ def build_scan_order(size):
 		y += 1
 	return order
 
+
 def move_to(x, y):
-	# 近道で移動
 	while get_pos_x() < x:
 		move(East)
 	while get_pos_x() > x:
@@ -78,9 +71,11 @@ def move_to(x, y):
 	while get_pos_y() > y:
 		move(South)
 
+
 def plant_here():
 	ensure_soil()
 	plant(Entities.Pumpkin)
+
 
 def init_if_needed():
 	size = get_world_size()
@@ -92,6 +87,8 @@ def init_if_needed():
 		_state[4] = 1
 		_state[5] = 0
 		_state[6] = size
+		dbg_line("init: size=" + i2s(size))
+
 
 def begin_new_lap():
 	_state[2] = 0
@@ -99,15 +96,19 @@ def begin_new_lap():
 	_state[4] = 1
 	_state[5] = 0
 
+
 def step_tile(x, y):
+	# 戻り値: action_code（ログ用）
+	# 0=skip, 1=clear+plant, 2=dead_replant, 3=not_harvestable_marked
 	t = get_entity_type()
 
 	if _state[1] == 0:
-		# planting phase
+		# planting phase: Pumpkin以外だけ置換（Pumpkinは触らない）
 		if t != Entities.Pumpkin:
 			clear()
 			plant_here()
-		return
+			return 1
+		return 0
 
 	# repair/grow phase
 	if t == Entities.Dead_Pumpkin:
@@ -115,8 +116,7 @@ def step_tile(x, y):
 		_state[2] += 1
 		_state[3] = 0
 		_state[4] = 0
-		dbg("dead fixed at", x, y)
-		return
+		return 2
 
 	if t != Entities.Pumpkin:
 		clear()
@@ -124,11 +124,15 @@ def step_tile(x, y):
 		_state[2] += 1
 		_state[3] = 0
 		_state[4] = 0
-		return
+		return 1
 
 	# t == Entities.Pumpkin
 	if not can_harvest():
 		_state[4] = 0
+		return 3
+
+	return 0
+
 
 def harvest_once():
 	before = num_items(Items.Pumpkin)
@@ -136,31 +140,48 @@ def harvest_once():
 	after = num_items(Items.Pumpkin)
 	return after - before
 
+
 def run(reset_field = False):
 	init_if_needed()
 	size = _state[6]
 	order = build_scan_order(size)
+	total = len(order)
 
 	# reset_field（別モードから来た初回）なら planting フェーズへ戻す
 	if reset_field:
+		dbg_line("run: reset_field=True phase=" + i2s(_state[1]) + " idx=" + i2s(_state[0]) + " total=" + i2s(total))
 		_state[1] = 0
 		_state[0] = 0
 		begin_new_lap()
+	else:
+		dbg_line("run: reset_field=False phase=" + i2s(_state[1]) + " idx=" + i2s(_state[0]) + " total=" + i2s(total))
 
 	steps = 0
+	trace_count = 0
+
 	while steps < STEPS_PER_CALL:
 		x, y = order[_state[0]]
 		move_to(x, y)
 
-		step_tile(x, y)
+		cx = get_pos_x()
+		cy = get_pos_y()
+		t_before = get_entity_type()
+
+		action = step_tile(x, y)
+
+		# （tileログ部分はあなたの1行版のままでOK）
 
 		_state[0] += 1
 		_state[5] += 1
 
-		if _state[0] >= size * size:
+		# ★ここを size*size ではなく total にする
+		if _state[0] >= total:
 			_state[0] = 0
 
-			dbg("lap end: phase=", _state[1], "repaired=", _state[2], "all_pumpkin=", _state[3], "all_harvestable=", _state[4])
+			dbg_line("lap end: phase=" + i2s(_state[1])
+				+ " repaired=" + i2s(_state[2])
+				+ " all_pumpkin=" + i2s(_state[3])
+				+ " all_harvestable=" + i2s(_state[4]))
 
 			if _state[1] == 0:
 				_state[1] = 1
@@ -169,7 +190,7 @@ def run(reset_field = False):
 
 			if _state[3] == 1 and _state[4] == 1:
 				gained = harvest_once()
-				dbg("HARVEST TRIGGERED gained=", gained)
+				dbg_line("HARVEST TRIGGERED gained=" + str(gained))
 				_state[1] = 0
 				begin_new_lap()
 				return gained
