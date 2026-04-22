@@ -1,0 +1,177 @@
+# pumpkin_mode_v2
+
+import field_utils
+
+PHASE_PLANT = 0
+PHASE_REPAIR = 1
+
+_S = [PHASE_PLANT, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, -1]
+
+def sync_pos():
+	_S[2] = get_pos_x()
+	_S[3] = get_pos_y()
+
+def reset_lap():
+	_S[5] = 0
+	_S[6] = 0
+	_S[7] = 0
+	_S[8] = 0
+	_S[9] = 0
+	_S[10] += 1
+	_S[11] = -1
+
+def init_if_needed():
+	size = get_world_size()
+	if _S[1] != size:
+		_S[0] = PHASE_PLANT
+		_S[1] = size
+		_S[2] = 0
+		_S[3] = 0
+		_S[4] = 1
+		_S[10] = 0
+		_S[11] = -1
+		reset_lap()
+		field_utils.go_bottom_left()
+		sync_pos()
+
+def step_next():
+	size = _S[1]
+	x = _S[2]
+	y = _S[3]
+	d = _S[4]
+
+	nx = x + d
+	if 0 <= nx and nx < size:
+		if d == 1:
+			move(East)
+		else:
+			move(West)
+		sync_pos()
+		return
+
+	if y < size - 1:
+		move(North)
+		_S[4] = -d
+		sync_pos()
+		return
+
+	_S[5] = size * size
+
+def start_repair_lap():
+	field_utils.go_bottom_left()
+	_S[4] = 1
+	sync_pos()
+
+def force_pumpkin_here():
+	if can_harvest():
+		harvest()
+	else:
+		clear()
+
+	field_utils.ensure_ground(Grounds.Soil)
+	plant(Entities.Pumpkin)
+
+	if get_entity_type() != Entities.Pumpkin:
+		clear()
+		field_utils.ensure_ground(Grounds.Soil)
+		plant(Entities.Pumpkin)
+
+def plant_full():
+	field_utils.go_bottom_left()
+	size = get_world_size()
+
+	y = 0
+	while y < size:
+		if y % 2 == 0:
+			x = 0
+			while x < size:
+				force_pumpkin_here()
+				if x < size - 1:
+					move(East)
+				x += 1
+		else:
+			x = size - 1
+			while x >= 0:
+				force_pumpkin_here()
+				if x > 0:
+					move(West)
+				x -= 1
+
+		if y < size - 1:
+			move(North)
+		y += 1
+
+	sync_pos()
+
+def do_repair_tile():
+	t = get_entity_type()
+
+	if t == Entities.Dead_Pumpkin:
+		field_utils.ensure_ground(Grounds.Soil)
+		plant(Entities.Pumpkin)
+		_S[6] += 1
+		return
+
+	if t == Entities.Pumpkin and can_harvest():
+		mv = measure()
+		if mv != None and mv > _S[11]:
+			_S[11] = mv
+			_S[7] = 1
+			_S[8] = get_pos_x()
+			_S[9] = get_pos_y()
+
+def harvest_at(x, y):
+	field_utils.go_to(x, y)
+
+	if get_entity_type() != Entities.Pumpkin:
+		return 0
+
+	before = num_items(Items.Pumpkin)
+	harvest()
+	after = num_items(Items.Pumpkin)
+	return after - before
+
+def finish_harvest_cycle(gained):
+	_S[0] = PHASE_PLANT
+	reset_lap()
+
+	plant_full()
+
+	_S[0] = PHASE_REPAIR
+	reset_lap()
+	start_repair_lap()
+	return gained
+
+def run():
+	init_if_needed()
+
+	if _S[0] == PHASE_PLANT:
+		plant_full()
+		_S[0] = PHASE_REPAIR
+		reset_lap()
+		start_repair_lap()
+		return 0
+
+	if _S[5] == 0:
+		start_repair_lap()
+
+	while True:
+		do_repair_tile()
+		_S[5] += 1
+
+		if _S[5] >= _S[1] * _S[1]:
+			if _S[6] > 0:
+				reset_lap()
+				start_repair_lap()
+				return 0
+
+			if _S[7] == 1:
+				gained = harvest_at(_S[8], _S[9])
+				if gained > 0:
+					return finish_harvest_cycle(gained)
+
+			reset_lap()
+			start_repair_lap()
+			return 0
+
+		step_next()
