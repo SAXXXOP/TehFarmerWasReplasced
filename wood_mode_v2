@@ -1,0 +1,15 @@
+# wood_mode_v2
+
+import field_utils
+
+def handle_tile(x, y):
+	# 育っていれば収穫
+	if can_harvest():
+		harvest()
+
+	# 木でなければ植え直し
+	if get_entity_type() != Entities.Tree:
+		plant(Entities.Tree)
+
+def run():
+	field_utils.snake_walk(handle_tile)
