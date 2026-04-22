@@ -168,6 +168,7 @@ print_missing_status(target_info)
 last_mode = "idle"
 pumpkin_field_ready = False
 pumpkin_mid_cycle = False
+pumpkin_rebuild_needed = False
 
 while True:
 	target_info = goal.resolve_target()
@@ -194,6 +195,7 @@ while True:
 	if allow_sunflower_before_mode and sunflower_boost.should_refill() and sunflower_boost.can_run():
 		quick_print("mode = sunflower_boost")
 		sunflower_boost.run()
+		pumpkin_rebuild_needed = True
 		last_mode = "sunflower_boost"
 	else:
 		if mode == "pumpkin" and pumpkin_mid_cycle and sunflower_boost.should_refill():
@@ -222,7 +224,7 @@ while True:
 			ensure_normal_hat()
 			if pumpkin_mode.enough_for_mode():
 				# 畑がまだ出来ていない最初の1回だけ reset
-				reset_field = (not pumpkin_field_ready)
+				reset_field = (not pumpkin_field_ready) or pumpkin_rebuild_needed
 				if reset_field:
 					quick_print("pumpkin enter: reset_field=", reset_field, "last_mode=", last_mode)
 
@@ -230,6 +232,9 @@ while True:
 				pumpkin_mid_cycle = True
 
 				gained = pumpkin_mode.run(reset_field)
+				
+				pumpkin_field_ready = True
+				pumpkin_rebuild_needed = False
 
 				# 一度でも pumpkin に入ったら畑は準備済み扱い
 				pumpkin_field_ready = True
@@ -244,6 +249,7 @@ while True:
 					if sunflower_boost.should_refill() and sunflower_boost.can_run():
 						quick_print("mode = sunflower_boost (after pumpkin harvest)")
 						sunflower_boost.run()
+						pumpkin_rebuild_needed = True
 						next_last_mode = "sunflower_boost"
 					elif sunflower_boost.should_refill():
 						quick_print("sunflower wanted after pumpkin harvest but not ready")
