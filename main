@@ -230,9 +230,7 @@ while True:
 
 				# ここから収穫まで sunflower 割り込み禁止
 				pumpkin_mid_cycle = True
-
-				gained = pumpkin_mode.run(reset_field)
-				
+	
 				gained = pumpkin_mode.run(reset_field)
 
 				pumpkin_field_ready = True
