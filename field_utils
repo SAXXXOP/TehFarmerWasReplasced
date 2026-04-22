@@ -101,3 +101,13 @@ def snake_walk_rect(width, height, callback):
 		if y < height - 1:
 			move(North)
 		y += 1
+
+def go_top_left():
+	while get_pos_x() > 0:
+		move(West)
+	while get_pos_y() < get_world_size() - 1:
+		move(North)
+
+def go_to_top_left_rect(width, height):
+	# 左上矩形の左上に移動
+	go_top_left()
