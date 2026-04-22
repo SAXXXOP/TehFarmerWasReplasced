@@ -10,7 +10,7 @@ DEBUG = True
 PHASE_PLANT = 0
 PHASE_REPAIR = 1
 
-MIN_STABLE_LAPS = 3  # まず3。まだ小さく刈るなら5へ
+MIN_STABLE_LAPS = 1  # まず3。まだ小さく刈るなら5へ
 
 
 def dbg(msg):
