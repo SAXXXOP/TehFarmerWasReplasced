@@ -1,11 +1,8 @@
 # main_v2
-# v2 系モードを呼ぶための薄い main
-# - 目標を見る
-# - 稼ぐ資源を決める
-# - 対応モードを1回呼ぶ
-# - sunflower はまだ混ぜない
+# mode_selector を切り出した版
 
 import goal
+import mode_selector
 import dinosaur_boost
 import hay_mode_v2
 import wood_mode_v2
@@ -66,83 +63,6 @@ def print_missing_status(target_info):
 	if empty:
 		quick_print("missing = none")
 
-def pumpkin_ready():
-	# 旧 enough_for_mode 相当の安全条件
-	if num_items(Items.Hay) < 2500:
-		return False
-	if num_items(Items.Wood) < 2500:
-		return False
-	if num_items(Items.Carrot) < 1200:
-		return False
-	return True
-
-def choose_mode_for_target(target_info):
-	cost = target_info["cost"]
-
-	if is_empty_cost(cost):
-		return "idle"
-
-	hay_missing = 0
-	wood_missing = 0
-	carrot_missing = 0
-	pumpkin_missing = 0
-	cactus_missing = 0
-	bone_missing = 0
-
-	if Items.Hay in cost:
-		hay_missing = max(0, cost[Items.Hay] - num_items(Items.Hay))
-
-	if Items.Wood in cost:
-		wood_missing = max(0, cost[Items.Wood] - num_items(Items.Wood))
-
-	if Items.Carrot in cost:
-		carrot_missing = max(0, cost[Items.Carrot] - num_items(Items.Carrot))
-
-	if Items.Pumpkin in cost:
-		pumpkin_missing = max(0, cost[Items.Pumpkin] - num_items(Items.Pumpkin))
-
-	if Items.Cactus in cost:
-		cactus_missing = max(0, cost[Items.Cactus] - num_items(Items.Cactus))
-
-	if Items.Bone in cost:
-		bone_missing = max(0, cost[Items.Bone] - num_items(Items.Bone))
-
-	if bone_missing > 0:
-		return "bone"
-
-	mode = "idle"
-	biggest_missing = 0
-
-	if hay_missing > biggest_missing:
-		biggest_missing = hay_missing
-		mode = "hay"
-
-	if wood_missing > biggest_missing:
-		biggest_missing = wood_missing
-		mode = "wood"
-
-	if carrot_missing > biggest_missing:
-		biggest_missing = carrot_missing
-		mode = "carrot"
-
-	if pumpkin_missing > biggest_missing:
-		if pumpkin_ready():
-			biggest_missing = pumpkin_missing
-			mode = "pumpkin"
-		else:
-			if num_items(Items.Hay) < 2500:
-				return "hay"
-			if num_items(Items.Wood) < 2500:
-				return "wood"
-			if num_items(Items.Carrot) < 1200:
-				return "carrot"
-
-	if cactus_missing > biggest_missing:
-		biggest_missing = cactus_missing
-		mode = "cactus"
-
-	return mode
-
 def try_unlock_target(target_info):
 	target = target_info["target"]
 	cost = target_info["cost"]
@@ -178,7 +98,7 @@ while True:
 		print_goal_status(target_info)
 		print_missing_status(target_info)
 
-	mode = choose_mode_for_target(target_info)
+	mode = mode_selector.choose_mode_for_target(target_info)
 	quick_print("mode =", mode)
 
 	if mode == "hay":
