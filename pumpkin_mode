@@ -17,6 +17,16 @@ def dbg(msg):
 	if DEBUG:
 		print(msg)
 
+def enough_for_mode():
+	# いままでの運用目安（必要ならあとで調整）
+	if num_items(Items.Hay) < 2500:
+		return False
+	if num_items(Items.Wood) < 2500:
+		return False
+	if num_items(Items.Carrot) < 1200:
+		return False
+	return True
+
 def i2s(n):
 	return str(n)
 
