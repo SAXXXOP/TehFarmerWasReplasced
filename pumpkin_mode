@@ -1,46 +1,61 @@
-# pumpkin_mode
-# フェーズ0: 全面 clear + plant（何があっても植える）
-# フェーズ1: 蛇行継続で dead だけ植え替え、Pumpkin以外は置換
-#            「修理なし周回」かつ「Pumpkinで収穫可能が見つかった」なら収穫
-# 時間計測: move / action / harvest / total
+# pumpkin_mode (full / reset version, repair=dead only, best-measure harvest)
 
 DEBUG = True
-STEPS_PER_CALL = 200  # 1回で進めるタイル数（重ければ下げる）
 
 PHASE_PLANT = 0
 PHASE_REPAIR = 1
-
-def now():
-	return get_time()
 
 def dbg(msg):
 	if DEBUG:
 		print(msg)
 
-def enough_for_mode():
-	# いままでの運用目安（必要ならあとで調整）
-	if num_items(Items.Hay) < 2500:
-		return False
-	if num_items(Items.Wood) < 2500:
-		return False
-	if num_items(Items.Carrot) < 1200:
-		return False
-	return True
-
 def i2s(n):
 	return str(n)
 
-# state:
-# [phase, size, x, y, dir, steps_in_lap, repaired_in_lap, harvest_found, hx, hy, lap]
-# dir: 1=East, -1=West
-_state = [PHASE_PLANT, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0]
+# _S:
+# 0  phase
+# 1  size
+# 2  x(state)
+# 3  y(state)
+# 4  dir (1=E, -1=W)
+# 5  steps_in_lap
+# 6  repaired_in_lap
+# 7  harvest_found
+# 8  hx
+# 9  hy
+# 10 lap
+# 11 best_measure  (追加)
+_S = [PHASE_PLANT, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, -1]
 
+
+def sync_state_pos():
+	_S[2] = get_pos_x()
+	_S[3] = get_pos_y()
+
+def go_to(x, y):
+	while get_pos_x() < x:
+		move(East)
+	while get_pos_x() > x:
+		move(West)
+	while get_pos_y() < y:
+		move(North)
+	while get_pos_y() > y:
+		move(South)
+	sync_state_pos()
 
 def ensure_soil():
 	if get_ground_type() != Grounds.Soil:
 		till()
 
-def plant_here():
+def make_empty():
+	# clearだけだと消えない対象があるので、収穫できるなら harvest を優先
+	if can_harvest():
+		harvest()
+	else:
+		clear()
+
+def plant_here_force():
+	make_empty()
 	ensure_soil()
 	plant(Entities.Pumpkin)
 
@@ -53,126 +68,90 @@ def enough_for_mode():
 		return False
 	return True
 
-def go_to(x, y):
-	while get_pos_x() < x:
-		move(East)
-	while get_pos_x() > x:
-		move(West)
-	while get_pos_y() < y:
-		move(North)
-	while get_pos_y() > y:
-		move(South)
-
-	# ★追加：state同期
-	_state[2] = get_pos_x()
-	_state[3] = get_pos_y()
-
 def init_if_needed():
 	size = get_world_size()
-	if _state[1] != size:
-		_state[0] = PHASE_PLANT
-		_state[1] = size
-		_state[2] = 0
-		_state[3] = 0
-		_state[4] = 1
-		_state[5] = 0
-		_state[6] = 0
-		_state[7] = 0
-		_state[8] = 0
-		_state[9] = 0
-		_state[10] = 0
+	if _S[1] != size:
+		_S[0] = PHASE_PLANT
+		_S[1] = size
+		_S[2] = 0
+		_S[3] = 0
+		_S[4] = 1
+		_S[10] = 0
+		reset_lap()
 		go_to(0, 0)
 		dbg("init: size=" + i2s(size))
 
-def begin_new_lap():
-	_state[5] = 0     # steps_in_lap
-	_state[6] = 0     # repaired_in_lap
-	_state[7] = 0     # harvest_found
-	_state[8] = 0     # hx
-	_state[9] = 0     # hy
-	_state[10] += 1   # lap count
+def reset_lap():
+	_S[5] = 0
+	_S[6] = 0
+	_S[7] = 0
+	_S[8] = 0
+	_S[9] = 0
+	_S[10] += 1
+	_S[11] = -1   # best_measure をリセット
 
 def at_end_of_lap():
-	return _state[5] >= _state[1] * _state[1]
+	return _S[5] >= _S[1] * _S[1]
 
-def step_next_position():
-	# 現在位置 (_state[2],_state[3]) から蛇行で次へ進む
-	size = _state[1]
-	x = _state[2]
-	y = _state[3]
-	dir = _state[4]
+def step_next():
+	size = _S[1]
+	x = _S[2]
+	y = _S[3]
+	d = _S[4]
 
-	# 行内を進む
-	nx = x + dir
-	ny = y
-
+	nx = x + d
 	if 0 <= nx and nx < size:
-		if dir == 1:
+		if d == 1:
 			move(East)
 		else:
 			move(West)
-		_state[2] = nx
-		_state[3] = ny
+		sync_state_pos()
 		return
 
-	# 行端に到達 → 次の行へ上がって反転
 	if y < size - 1:
 		move(North)
-		_state[3] = y + 1
-		_state[4] = -dir
+		_S[4] = -d
+		sync_state_pos()
 		return
 
-	# 最上段まで来た（周回終端）
-	# 同じマスでループしないように、周回を強制終了させる
-	_state[5] = size * size
-
-	_state[2] = get_pos_x()
-	_state[3] = get_pos_y()
-	
+	# 最上段まで来た＝周回終端
+	_S[5] = size * size
 	return
 
+
 def do_tile_action():
-	# その場のタイルを処理する
-	phase = _state[0]
+	phase = _S[0]
 	t = get_entity_type()
 
 	if phase == PHASE_PLANT:
-		# 全面植え付け：何があっても clear + plant
-		clear()
-		plant_here()
+		# 全面植え付け（問答無用）
+		plant_here_force()
 		return
 
-	# repair/grow：判定は entity_type で行う（can_harvestでdead判定しない）
-
-	# dead は植えるだけで除去される
+	# ===== PHASE_REPAIR: Deadだけ修理。その他は触らず待つ =====
 	if t == Entities.Dead_Pumpkin:
-		plant_here()
-		_state[6] += 1
+		# dead は植えるだけで除去される
+		ensure_soil()
+		plant(Entities.Pumpkin)
+		_S[6] += 1
 		return
 
-	# Pumpkin 以外（Grass / Sunflower 残り等）は置換
-	if t != Entities.Pumpkin:
-		clear()
-		plant_here()
-		_state[6] += 1
-		return
-
-	# ここに来たら t == Entities.Pumpkin
-	if can_harvest():
-		# 候補は周回中に何度も上書きしない（ログ連打防止＆安定）
-		if _state[7] == 0:
+	# 収穫候補は「Pumpkin かつ can_harvest」のときだけ
+	if t == Entities.Pumpkin:
+		if can_harvest():
 			mv = measure()
-			# Grass は measure=None（ログで確定）なので弾く
+			# mv が取れない(None)なら無視（念のため）
 			if mv != None:
-				px = get_pos_x()
-				py = get_pos_y()
-				dbg("CANDIDATE_REALPOS: state=(" + i2s(_state[2]) + "," + i2s(_state[3]) + ") real=(" + i2s(px) + "," + i2s(py) + ") entity=" + str(t) + " measure=" + str(mv))
-				_state[7] = 1
-				_state[8] = px
-				_state[9] = py
+				# 1周の中で measure 最大の点を採用
+				if mv > _S[11]:
+					_S[11] = mv
+					_S[7] = 1
+					_S[8] = get_pos_x()
+					_S[9] = get_pos_y()
 		return
 
-	# 未成熟は触らない
+	# PumpkinでもDeadでもない（Grass等）は“成長途中/合体待ち”の可能性があるので触らない
+	return
 
 
 def harvest_at(x, y):
@@ -185,98 +164,58 @@ def harvest_at(x, y):
 	before = num_items(Items.Pumpkin)
 	harvest()
 	after = num_items(Items.Pumpkin)
-
 	gained = after - before
-	dbg("HARVEST_CHECK: pos=(" + i2s(x) + "," + i2s(y) + ") entity=" + str(t) + " can_harvest=" + str(ch) + " measure=" + str(mv) + " before=" + str(before) + " after=" + str(after) + " gained=" + str(gained))
+
+	dbg("HARVEST_CHECK: pos=(" + i2s(x) + "," + i2s(y) + ") entity=" + str(t) + " can_harvest=" + str(ch) + " measure=" + str(mv) + " gained=" + str(gained))
 	return gained
 
 
 def run(reset_field=False):
 	init_if_needed()
 
-	# per-call timer
-	t_call0 = now()
-	t_move = 0.0
-	t_action = 0.0
-	t_harvest = 0.0
-
 	if reset_field:
-		dbg("run: reset_field=True phase=" + i2s(_state[0]) + " pos=(" + i2s(_state[2]) + "," + i2s(_state[3]) + ")")
-		_state[0] = PHASE_PLANT
+		dbg("run: reset_field=True -> PLANT")
+		_S[0] = PHASE_PLANT
 		go_to(0, 0)
-		_state[2] = 0
-		_state[3] = 0
-		_state[4] = 1
-		begin_new_lap()
-	else:
-		dbg("run: reset_field=False phase=" + i2s(_state[0]) + " pos=(" + i2s(_state[2]) + "," + i2s(_state[3]) + ")")
+		_S[4] = 1
+		reset_lap()
 
-	# ★ ここがポイント：フェーズ単位で止めるので「lap end まで回す」
+	dbg("run: phase=" + i2s(_S[0]) + " pos=(" + i2s(_S[2]) + "," + i2s(_S[3]) + ") lap=" + i2s(_S[10]))
+
 	while True:
-		# 1) その場を処理
-		t1 = now()
 		do_tile_action()
-		t_action += (now() - t1)
+		_S[5] += 1
 
-		_state[5] += 1
 		if at_end_of_lap():
-			dbg("lap end: phase=" + i2s(_state[0])
-				+ " repaired=" + i2s(_state[6])
-				+ " harvest_found=" + i2s(_state[7])
-				+ " lap=" + i2s(_state[10]))
+			dbg("lap end: phase=" + i2s(_S[0]) + " repaired=" + i2s(_S[6]) + " harvest_found=" + i2s(_S[7]) + " best_measure=" + str(_S[11]) + " lap=" + i2s(_S[10]))
 
-			# フェーズ0の区切り：植え付け1周完了 → repairへ切替して止まる
-			if _state[0] == PHASE_PLANT:
-				_state[0] = PHASE_REPAIR
-				begin_new_lap()
-				t_total = now() - t_call0
-				dbg("time(phase): total=" + str(t_total) + " move=" + str(t_move) + " action=" + str(t_action) + " harvest=" + str(t_harvest))
+			if _S[0] == PHASE_PLANT:
+				_S[0] = PHASE_REPAIR
+				reset_lap()
 				return 0
 
-			# フェーズ1の区切り：修理が入った周回なら成熟待ちで止まる
-			if _state[6] > 0:
-				begin_new_lap()
-				t_total = now() - t_call0
-				dbg("time(phase): total=" + str(t_total) + " move=" + str(t_move) + " action=" + str(t_action) + " harvest=" + str(t_harvest))
+			# REPAIR周回
+			if _S[6] > 0:
+				# dead修理が入った周回は収穫しない（次周へ）
+				reset_lap()
 				return 0
 
-			# 修理なし & 収穫候補があるなら収穫して止まる
-			if _state[7] == 1:
-				t2 = now()
-				gained = harvest_at(_state[8], _state[9])
-				t_harvest += (now() - t2)
-				dbg("HARVEST: at=(" + i2s(_state[8]) + "," + i2s(_state[9]) + ") gained=" + str(gained))
+			if _S[7] == 1:
+				gained = harvest_at(_S[8], _S[9])
+				if gained > 0:
+					# 成功したら次サイクルへ（PLANTに戻る）
+					_S[0] = PHASE_PLANT
+					go_to(0, 0)
+					_S[4] = 1
+					reset_lap()
+					return gained
 
-				# 0なら成熟待ちなので repair 継続（植え付けに戻さず止まる）
-				if gained == 0:
-					begin_new_lap()
-					t_total = now() - t_call0
-					dbg("time(phase): total=" + str(t_total) + " move=" + str(t_move) + " action=" + str(t_action) + " harvest=" + str(t_harvest))
-					return 0
+				# 収穫0は成熟待ち：PLANTへ戻らずREPAIR継続
+				reset_lap()
+				return 0
 
-				# 成功したら次サイクルへ（植え付けに戻して止まる）
-				_state[0] = PHASE_PLANT
-				go_to(0, 0)
-				_state[2] = 0
-				_state[3] = 0
-				_state[4] = 1
-				begin_new_lap()
-
-				t_total = now() - t_call0
-				dbg("time(phase): total=" + str(t_total) + " move=" + str(t_move) + " action=" + str(t_action) + " harvest=" + str(t_harvest))
-				return gained
-
-			# 収穫候補がない＝成熟待ちで止まる
-			begin_new_lap()
-			t_total = now() - t_call0
-			dbg("time(phase): total=" + str(t_total) + " move=" + str(t_move) + " action=" + str(t_action) + " harvest=" + str(t_harvest))
+			# 収穫候補がない＝成熟待ち
+			reset_lap()
 			return 0
 
-		# 2) 次のタイルへ 1マスだけ移動
-		t0 = now()
-		step_next_position()
-		t_move += (now() - t0)
-
-	t_total = now() - t_call0
-	dbg("time(call): total=" + str(t_total) + " move=" + str(t_move) + " action=" + str(t_action) + " harvest=" + str(t_harvest))
-	return 0
+		step_next()
