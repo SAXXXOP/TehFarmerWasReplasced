@@ -1,7 +1,7 @@
 # main_v2
-# mode_selector を切り出した版
+# resource_goal / mode_selector を分離した版
 
-import goal
+import resource_goal
 import mode_selector
 import dinosaur_boost
 import hay_mode_v2
@@ -10,30 +10,8 @@ import carrot_mode_v2_rect_fertilizer
 import pumpkin_mode_v2
 import cactus_mode_v2
 
-def is_empty_cost(cost):
-	if cost == None:
-		return True
-
-	for item in cost:
-		return False
-
-	return True
-
 def ensure_normal_hat():
 	change_hat(Hats.Straw_Hat)
-
-def get_missing_map(cost):
-	missing = {}
-
-	if is_empty_cost(cost):
-		return missing
-
-	for item in cost:
-		diff = cost[item] - num_items(item)
-		if diff > 0:
-			missing[item] = diff
-
-	return missing
 
 def print_goal_status(target_info):
 	quick_print("goal mode =", target_info["goal_mode"])
@@ -47,54 +25,28 @@ def print_goal_status(target_info):
 	print("cost =", target_info["cost"])
 
 def print_missing_status(target_info):
-	cost = target_info["cost"]
-
-	if is_empty_cost(cost):
-		quick_print("missing = none")
-		return
-
-	missing = get_missing_map(cost)
+	missing = resource_goal.get_missing_map(target_info)
 
 	empty = True
 	for item in missing:
 		empty = False
-		quick_print(item, "need", cost[item], "have", num_items(item), "missing", missing[item])
+		quick_print(item, "need", target_info["cost"][item], "have", num_items(item), "missing", missing[item])
 
 	if empty:
 		quick_print("missing = none")
 
-def try_unlock_target(target_info):
-	target = target_info["target"]
-	cost = target_info["cost"]
-	level = target_info["target_level"]
-
-	if target == None:
-		return False
-
-	if is_empty_cost(cost):
-		return False
-
-	for item in cost:
-		if num_items(item) < cost[item]:
-			return False
-
-	if level == None:
-		unlock(target)
-	else:
-		unlock(target, level)
-
-	return True
-
-target_info = goal.resolve_target()
+target_info = resource_goal.resolve()
 print_goal_status(target_info)
 print_missing_status(target_info)
 
 while True:
-	target_info = goal.resolve_target()
+	target_info = resource_goal.resolve()
 
-	if try_unlock_target(target_info):
+	if resource_goal.can_unlock(target_info):
+		resource_goal.do_unlock(target_info)
 		quick_print("unlocked =", target_info["target"])
-		target_info = goal.resolve_target()
+
+		target_info = resource_goal.resolve()
 		print_goal_status(target_info)
 		print_missing_status(target_info)
 
