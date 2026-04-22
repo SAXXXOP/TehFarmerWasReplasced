@@ -1,7 +1,6 @@
 # resource_goal
-# 解除目標と必要資源を見るだけの薄いラッパ
-
-import goal
+# 暫定単独版
+# goal モジュールに依存せず、まずは main_v2 を起動できるようにする
 
 def is_empty_cost(cost):
 	if cost == None:
@@ -13,7 +12,16 @@ def is_empty_cost(cost):
 	return True
 
 def resolve():
-	return goal.resolve_target()
+	# まずは手動目標
+	# ここを書き換えるだけで稼ぐ対象を変えられる
+	return {
+		"goal_mode": "manual",
+		"target": None,
+		"target_level": None,
+		"cost": {
+			Items.Carrot: 1000
+		}
+	}
 
 def can_unlock(target_info):
 	target = target_info["target"]
