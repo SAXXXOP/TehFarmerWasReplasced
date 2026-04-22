@@ -75,3 +75,29 @@ def clear_field():
 def ensure_ground(ground_type):
 	if get_ground_type() != ground_type:
 		till()
+
+def snake_walk_rect(width, height, callback):
+	go_bottom_left()
+
+	y = 0
+	while y < height:
+		if y % 2 == 0:
+			x = 0
+			while x < width:
+				callback(x, y)
+
+				if x < width - 1:
+					move(East)
+				x += 1
+		else:
+			x = width - 1
+			while x >= 0:
+				callback(x, y)
+
+				if x > 0:
+					move(West)
+				x -= 1
+
+		if y < height - 1:
+			move(North)
+		y += 1
