@@ -201,8 +201,8 @@ def run(reset_field=False):
 	else:
 		dbg("run: reset_field=False phase=" + i2s(_state[0]) + " pos=(" + i2s(_state[2]) + "," + i2s(_state[3]) + ")")
 
-	steps = 0
-	while steps < STEPS_PER_CALL:
+	# ★ ここがポイント：フェーズ単位で止めるので「lap end まで回す」
+	while True:
 		# 1) その場を処理
 		t1 = now()
 		do_tile_action()
@@ -215,37 +215,36 @@ def run(reset_field=False):
 				+ " harvest_found=" + i2s(_state[7])
 				+ " lap=" + i2s(_state[10]))
 
+			# フェーズ0の区切り：植え付け1周完了 → repairへ切替して止まる
 			if _state[0] == PHASE_PLANT:
-				# 植え付け1周完了 → repairへ
 				_state[0] = PHASE_REPAIR
 				begin_new_lap()
 				t_total = now() - t_call0
-				dbg("time(call): total=" + str(t_total) + " move=" + str(t_move) + " action=" + str(t_action) + " harvest=" + str(t_harvest))
+				dbg("time(phase): total=" + str(t_total) + " move=" + str(t_move) + " action=" + str(t_action) + " harvest=" + str(t_harvest))
 				return 0
 
-			# repair phase の周回末尾
+			# フェーズ1の区切り：修理が入った周回なら成熟待ちで止まる
 			if _state[6] > 0:
-				# 修理が入った周回は収穫しない
 				begin_new_lap()
 				t_total = now() - t_call0
-				dbg("time(call): total=" + str(t_total) + " move=" + str(t_move) + " action=" + str(t_action) + " harvest=" + str(t_harvest))
+				dbg("time(phase): total=" + str(t_total) + " move=" + str(t_move) + " action=" + str(t_action) + " harvest=" + str(t_harvest))
 				return 0
 
+			# 修理なし & 収穫候補があるなら収穫して止まる
 			if _state[7] == 1:
-				# 修理なし & Pumpkinで収穫候補が見つかった → 収穫
 				t2 = now()
 				gained = harvest_at(_state[8], _state[9])
 				t_harvest += (now() - t2)
 				dbg("HARVEST: at=(" + i2s(_state[8]) + "," + i2s(_state[9]) + ") gained=" + str(gained))
 
-				# 0なら成熟待ち（or 収穫点が別）なので、植え付けに戻らず repair継続
+				# 0なら成熟待ちなので repair 継続（植え付けに戻さず止まる）
 				if gained == 0:
 					begin_new_lap()
 					t_total = now() - t_call0
-					dbg("time(call): total=" + str(t_total) + " move=" + str(t_move) + " action=" + str(t_action) + " harvest=" + str(t_harvest))
+					dbg("time(phase): total=" + str(t_total) + " move=" + str(t_move) + " action=" + str(t_action) + " harvest=" + str(t_harvest))
 					return 0
 
-				# 成功したら次サイクル：植え付けに戻す
+				# 成功したら次サイクルへ（植え付けに戻して止まる）
 				_state[0] = PHASE_PLANT
 				go_to(0, 0)
 				_state[2] = 0
@@ -254,16 +253,16 @@ def run(reset_field=False):
 				begin_new_lap()
 
 				t_total = now() - t_call0
-				dbg("time(call): total=" + str(t_total) + " move=" + str(t_move) + " action=" + str(t_action) + " harvest=" + str(t_harvest))
+				dbg("time(phase): total=" + str(t_total) + " move=" + str(t_move) + " action=" + str(t_action) + " harvest=" + str(t_harvest))
 				return gained
 
-			# 収穫候補が見つからない＝成熟待ち
+			# 収穫候補がない＝成熟待ちで止まる
 			begin_new_lap()
 			t_total = now() - t_call0
-			dbg("time(call): total=" + str(t_total) + " move=" + str(t_move) + " action=" + str(t_action) + " harvest=" + str(t_harvest))
+			dbg("time(phase): total=" + str(t_total) + " move=" + str(t_move) + " action=" + str(t_action) + " harvest=" + str(t_harvest))
 			return 0
 
-		# 2) 次のタイルへ 1マスだけ移動（高速化）
+		# 2) 次のタイルへ 1マスだけ移動
 		t0 = now()
 		step_next_position()
 		t_move += (now() - t0)
