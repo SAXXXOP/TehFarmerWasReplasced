@@ -267,8 +267,6 @@ def run(reset_field=False):
 		step_next_position()
 		t_move += (now() - t0)
 
-		steps += 1
-
 	t_total = now() - t_call0
 	dbg("time(call): total=" + str(t_total) + " move=" + str(t_move) + " action=" + str(t_action) + " harvest=" + str(t_harvest))
 	return 0
