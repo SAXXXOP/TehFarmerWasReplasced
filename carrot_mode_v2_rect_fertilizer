@@ -1,0 +1,30 @@
+# carrot_mode_v2_rect_fertilizer
+# 左下の一定範囲だけを回す軽量 + 肥料版
+
+import field_utils
+
+AREA_SIZE = 12
+FERTILIZER_RESERVE = 200
+
+def try_use_fertilizer():
+	if num_items(Items.Fertilizer) > FERTILIZER_RESERVE:
+		use_item(Items.Fertilizer)
+
+def handle_tile(x, y):
+	t = get_entity_type()
+
+	if t == Entities.Carrot:
+		if can_harvest():
+			harvest()
+			field_utils.ensure_ground(Grounds.Soil)
+			plant(Entities.Carrot)
+		else:
+			try_use_fertilizer()
+		return
+
+	clear()
+	field_utils.ensure_ground(Grounds.Soil)
+	plant(Entities.Carrot)
+
+def run():
+	field_utils.snake_walk_rect(AREA_SIZE, AREA_SIZE, handle_tile)
