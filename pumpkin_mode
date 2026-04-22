@@ -53,6 +53,10 @@ def go_to(x, y):
 	while get_pos_y() > y:
 		move(South)
 
+	# ★追加：state同期
+	_state[2] = get_pos_x()
+	_state[3] = get_pos_y()
+
 def init_if_needed():
 	size = get_world_size()
 	if _state[1] != size:
