@@ -1,7 +1,7 @@
 # pumpkin_mode
 # フェーズ0: 全面 clear + plant（何があっても植える）
 # フェーズ1: 蛇行継続で dead だけ植え替え、Pumpkin以外は置換
-#            「修理なし周回」かつ「収穫可能が見つかった」なら収穫
+#            「修理なし周回」かつ「Pumpkinで収穫可能が見つかった」なら収穫
 # 時間計測: move / action / harvest / total
 
 DEBUG = True
@@ -93,7 +93,6 @@ def step_next_position():
 	ny = y
 
 	if 0 <= nx and nx < size:
-		# 同じ行で1マス進む
 		if dir == 1:
 			move(East)
 		else:
@@ -106,12 +105,10 @@ def step_next_position():
 	if y < size - 1:
 		move(North)
 		_state[3] = y + 1
-		_state[4] = -dir  # 反転
-		# xは端のまま（0 or size-1）
+		_state[4] = -dir
 		return
 
-	# 最上段まで来た（ここで周回は終わり）
-	# 位置はそのまま
+	# 最上段まで来た（周回終端）。位置はそのまま
 
 
 def do_tile_action():
@@ -125,26 +122,27 @@ def do_tile_action():
 		plant_here()
 		return
 
-	# repair/grow
+	# repair/grow：判定は entity_type で行う（can_harvestでdead判定しない）
+
+	# dead は植えるだけで除去される
 	if t == Entities.Dead_Pumpkin:
 		plant_here()
 		_state[6] += 1
 		return
 
+	# Pumpkin 以外（Grass / Sunflower 残り等）は置換
 	if t != Entities.Pumpkin:
 		clear()
 		plant_here()
 		_state[6] += 1
 		return
 
-	# Pumpkin
+	# ここに来たら t == Entities.Pumpkin
+	# 収穫候補は「Pumpkin かつ can_harvest==True」のときだけ（Grassを絶対拾わない）
 	if can_harvest():
-		mv = measure()
-		# Grass など「収穫できるけどカボチャじゃない」を除外（ログで measure=None を確認済み）
-		if mv != None:
-			_state[7] = 1
-			_state[8] = _state[2]
-			_state[9] = _state[3]
+		_state[7] = 1
+		_state[8] = _state[2]
+		_state[9] = _state[3]
 		return
 
 	# 未成熟は触らない
@@ -195,7 +193,6 @@ def run(reset_field=False):
 
 		_state[5] += 1
 		if at_end_of_lap():
-			# lap end
 			dbg("lap end: phase=" + i2s(_state[0])
 				+ " repaired=" + i2s(_state[6])
 				+ " harvest_found=" + i2s(_state[7])
@@ -205,27 +202,33 @@ def run(reset_field=False):
 				# 植え付け1周完了 → repairへ
 				_state[0] = PHASE_REPAIR
 				begin_new_lap()
-				# 次周は今いる場所から継続（周回はまたsteps_in_lapで判定）
 				t_total = now() - t_call0
 				dbg("time(call): total=" + str(t_total) + " move=" + str(t_move) + " action=" + str(t_action) + " harvest=" + str(t_harvest))
 				return 0
 
 			# repair phase の周回末尾
 			if _state[6] > 0:
-				# 修理が入った周回は収穫しない（直後は成熟が崩れる可能性）
+				# 修理が入った周回は収穫しない
 				begin_new_lap()
 				t_total = now() - t_call0
 				dbg("time(call): total=" + str(t_total) + " move=" + str(t_move) + " action=" + str(t_action) + " harvest=" + str(t_harvest))
 				return 0
 
 			if _state[7] == 1:
-				# 修理なし & 収穫可能が見つかった → 収穫
+				# 修理なし & Pumpkinで収穫候補が見つかった → 収穫
 				t2 = now()
 				gained = harvest_at(_state[8], _state[9])
 				t_harvest += (now() - t2)
 				dbg("HARVEST: at=(" + i2s(_state[8]) + "," + i2s(_state[9]) + ") gained=" + str(gained))
 
-				# 次サイクル：植え付けに戻る（収穫地点からでもOKだが、蛇行を安定させるため0,0に戻す）
+				# 0なら成熟待ち（or 収穫点が別）なので、植え付けに戻らず repair継続
+				if gained == 0:
+					begin_new_lap()
+					t_total = now() - t_call0
+					dbg("time(call): total=" + str(t_total) + " move=" + str(t_move) + " action=" + str(t_action) + " harvest=" + str(t_harvest))
+					return 0
+
+				# 成功したら次サイクル：植え付けに戻す
 				_state[0] = PHASE_PLANT
 				go_to(0, 0)
 				_state[2] = 0
@@ -237,13 +240,13 @@ def run(reset_field=False):
 				dbg("time(call): total=" + str(t_total) + " move=" + str(t_move) + " action=" + str(t_action) + " harvest=" + str(t_harvest))
 				return gained
 
-			# 収穫可能が見つからない＝成熟待ち
+			# 収穫候補が見つからない＝成熟待ち
 			begin_new_lap()
 			t_total = now() - t_call0
 			dbg("time(call): total=" + str(t_total) + " move=" + str(t_move) + " action=" + str(t_action) + " harvest=" + str(t_harvest))
 			return 0
 
-		# 2) 次のタイルへ 1マスだけ移動（これが高速化の本丸）
+		# 2) 次のタイルへ 1マスだけ移動（高速化）
 		t0 = now()
 		step_next_position()
 		t_move += (now() - t0)
