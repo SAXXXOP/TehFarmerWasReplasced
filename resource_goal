@@ -1,0 +1,55 @@
+# resource_goal
+# 解除目標と必要資源を見るだけの薄いラッパ
+
+import goal
+
+def is_empty_cost(cost):
+	if cost == None:
+		return True
+
+	for item in cost:
+		return False
+
+	return True
+
+def resolve():
+	return goal.resolve_target()
+
+def can_unlock(target_info):
+	target = target_info["target"]
+	cost = target_info["cost"]
+
+	if target == None:
+		return False
+
+	if is_empty_cost(cost):
+		return False
+
+	for item in cost:
+		if num_items(item) < cost[item]:
+			return False
+
+	return True
+
+def do_unlock(target_info):
+	target = target_info["target"]
+	level = target_info["target_level"]
+
+	if level == None:
+		unlock(target)
+	else:
+		unlock(target, level)
+
+def get_missing_map(target_info):
+	cost = target_info["cost"]
+	missing = {}
+
+	if is_empty_cost(cost):
+		return missing
+
+	for item in cost:
+		diff = cost[item] - num_items(item)
+		if diff > 0:
+			missing[item] = diff
+
+	return missing
