@@ -1,0 +1,77 @@
+# field_utils
+
+def go_bottom_left():
+	while get_pos_x() > 0:
+		move(West)
+	while get_pos_y() > 0:
+		move(South)
+
+def go_to(x, y):
+	while get_pos_x() < x:
+		move(East)
+	while get_pos_x() > x:
+		move(West)
+	while get_pos_y() < y:
+		move(North)
+	while get_pos_y() > y:
+		move(South)
+
+def snake_walk(callback):
+	go_bottom_left()
+	size = get_world_size()
+
+	y = 0
+	while y < size:
+		if y % 2 == 0:
+			x = 0
+			while x < size:
+				callback(x, y)
+
+				if x < size - 1:
+					move(East)
+				x += 1
+		else:
+			x = size - 1
+			while x >= 0:
+				callback(x, y)
+
+				if x > 0:
+					move(West)
+				x -= 1
+
+		if y < size - 1:
+			move(North)
+		y += 1
+
+def clear_field():
+	go_bottom_left()
+	size = get_world_size()
+
+	y = 0
+	while y < size:
+		if y % 2 == 0:
+			x = 0
+			while x < size:
+				clear()
+
+				if x < size - 1:
+					move(East)
+				x += 1
+		else:
+			x = size - 1
+			while x >= 0:
+				clear()
+
+				if x > 0:
+					move(West)
+				x -= 1
+
+		if y < size - 1:
+			move(North)
+		y += 1
+
+	go_bottom_left()
+
+def ensure_ground(ground_type):
+	if get_ground_type() != ground_type:
+		till()
