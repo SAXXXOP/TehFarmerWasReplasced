@@ -1,9 +1,12 @@
-# pumpkin_mode (full / reset version, repair=dead only, best-measure harvest)
+# pumpkin_mode (repair=dead only, best_measure harvest, stable laps gate)
 
 DEBUG = True
 
 PHASE_PLANT = 0
 PHASE_REPAIR = 1
+
+# 連続で「修理なし」の周回が何回続いたら収穫するか
+MIN_STABLE_LAPS = 3
 
 def dbg(msg):
 	if DEBUG:
@@ -24,8 +27,9 @@ def i2s(n):
 # 8  hx
 # 9  hy
 # 10 lap
-# 11 best_measure  (追加)
-_S = [PHASE_PLANT, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, -1]
+# 11 best_measure
+# 12 stable_laps (追加)
+_S = [PHASE_PLANT, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, -1, 0]
 
 
 def sync_state_pos():
@@ -77,6 +81,7 @@ def init_if_needed():
 		_S[3] = 0
 		_S[4] = 1
 		_S[10] = 0
+		_S[12] = 0
 		reset_lap()
 		go_to(0, 0)
 		dbg("init: size=" + i2s(size))
@@ -88,7 +93,7 @@ def reset_lap():
 	_S[8] = 0
 	_S[9] = 0
 	_S[10] += 1
-	_S[11] = -1   # best_measure をリセット
+	_S[11] = -1   # best_measure
 
 def at_end_of_lap():
 	return _S[5] >= _S[1] * _S[1]
@@ -124,33 +129,28 @@ def do_tile_action():
 	t = get_entity_type()
 
 	if phase == PHASE_PLANT:
-		# 全面植え付け（問答無用）
+		# 全面植え付け
 		plant_here_force()
 		return
 
 	# ===== PHASE_REPAIR: Deadだけ修理。その他は触らず待つ =====
 	if t == Entities.Dead_Pumpkin:
-		# dead は植えるだけで除去される
 		ensure_soil()
 		plant(Entities.Pumpkin)
 		_S[6] += 1
 		return
 
-	# 収穫候補は「Pumpkin かつ can_harvest」のときだけ
+	# 候補は「Pumpkin かつ can_harvest」のときだけ、best_measure を採用
 	if t == Entities.Pumpkin:
 		if can_harvest():
 			mv = measure()
-			# mv が取れない(None)なら無視（念のため）
-			if mv != None:
-				# 1周の中で measure 最大の点を採用
-				if mv > _S[11]:
-					_S[11] = mv
-					_S[7] = 1
-					_S[8] = get_pos_x()
-					_S[9] = get_pos_y()
+			if mv != None and mv > _S[11]:
+				_S[11] = mv
+				_S[7] = 1
+				_S[8] = get_pos_x()
+				_S[9] = get_pos_y()
 		return
 
-	# PumpkinでもDeadでもない（Grass等）は“成長途中/合体待ち”の可能性があるので触らない
 	return
 
 
@@ -178,43 +178,57 @@ def run(reset_field=False):
 		_S[0] = PHASE_PLANT
 		go_to(0, 0)
 		_S[4] = 1
+		_S[12] = 0
 		reset_lap()
 
-	dbg("run: phase=" + i2s(_S[0]) + " pos=(" + i2s(_S[2]) + "," + i2s(_S[3]) + ") lap=" + i2s(_S[10]))
+	dbg("run: phase=" + i2s(_S[0]) + " pos=(" + i2s(_S[2]) + "," + i2s(_S[3]) + ") lap=" + i2s(_S[10]) + " stable=" + i2s(_S[12]))
 
 	while True:
 		do_tile_action()
 		_S[5] += 1
 
 		if at_end_of_lap():
-			dbg("lap end: phase=" + i2s(_S[0]) + " repaired=" + i2s(_S[6]) + " harvest_found=" + i2s(_S[7]) + " best_measure=" + str(_S[11]) + " lap=" + i2s(_S[10]))
+			dbg("lap end: phase=" + i2s(_S[0]) + " repaired=" + i2s(_S[6]) + " harvest_found=" + i2s(_S[7]) + " best_measure=" + str(_S[11]) + " stable=" + i2s(_S[12]) + " lap=" + i2s(_S[10]))
 
 			if _S[0] == PHASE_PLANT:
 				_S[0] = PHASE_REPAIR
+				# 植え付け直後は安定周回カウントを0にしてスタート
+				_S[12] = 0
 				reset_lap()
 				return 0
 
-			# REPAIR周回
+			# REPAIR 周回末尾：安定周回カウント更新
 			if _S[6] > 0:
-				# dead修理が入った周回は収穫しない（次周へ）
+				# 修理が入ったら安定リセット
+				_S[12] = 0
 				reset_lap()
 				return 0
 
+			# 修理なしなら安定+1
+			_S[12] += 1
+
+			# まだ安定が足りないなら成熟待ち
+			if _S[12] < MIN_STABLE_LAPS:
+				reset_lap()
+				return 0
+
+			# 安定が溜まったら、候補があるときだけ収穫
 			if _S[7] == 1:
 				gained = harvest_at(_S[8], _S[9])
 				if gained > 0:
-					# 成功したら次サイクルへ（PLANTに戻る）
+					# 収穫成功 → 次サイクル（PLANTへ）
 					_S[0] = PHASE_PLANT
 					go_to(0, 0)
 					_S[4] = 1
+					_S[12] = 0
 					reset_lap()
 					return gained
 
-				# 収穫0は成熟待ち：PLANTへ戻らずREPAIR継続
+				# 収穫0は成熟待ち：REPAIR続行（安定カウントは維持）
 				reset_lap()
 				return 0
 
-			# 収穫候補がない＝成熟待ち
+			# 候補なし＝成熟待ち
 			reset_lap()
 			return 0
 
