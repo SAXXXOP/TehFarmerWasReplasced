@@ -56,20 +56,18 @@ def ensure_soil():
 	if get_ground_type() != Grounds.Soil:
 		till()
 
-def def make_empty():
+def make_empty():
 	t = get_entity_type()
 
-	# 空なら何もしない（ここが無駄clear削減の本体）
+	# ★空なら何もしない（最大化収穫後はほぼここに入るので、無駄clearが消える）
 	if t == None:
 		return
 
 	# 収穫できるなら harvest（clearで消えない対象対策）
 	if can_harvest():
 		harvest()
-		return
-
-	# それ以外は clear
-	clear()
+	else:
+		clear()
 
 def plant_here_force():
 	make_empty()
