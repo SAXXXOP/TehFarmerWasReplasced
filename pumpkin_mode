@@ -319,7 +319,8 @@ def run(reset_field=False):
 				gained = harvest_at(_S[8], _S[9])
 
 				if gained > 0:
-					# 収穫成功 → その場で次サイクルの植え付けまで進める
+					# 収穫成功 → その場で全面再植え付けしてからREPAIRへ戻す
+					dbg("HARVEST_OK -> REPLANT_START")
 					_S[0] = PHASE_PLANT
 					_S[12] = 0
 					reset_lap()
