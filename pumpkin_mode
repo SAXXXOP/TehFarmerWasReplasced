@@ -1,16 +1,17 @@
-# pumpkin_mode (FULL REPLACE)
-# - PLANT: 全面を "harvest優先→clear→soil→plant" で確実にパンプキン化
+# pumpkin_mode (FULL REPLACE)  ※ベース: あなたの貼った版
+# - PLANT: 二重ループ蛇行で「全面植え付けを一気に完了」（列飛ばし事故を根絶）
 # - REPAIR: Deadだけ植え替え / Pumpkinで harvestable を best_measure で選ぶ
 # - REPAIRの各周回は必ず(0,0) dir=1 から開始（端スタート事故防止）
 # - 連続で「修理なし」の周回が MIN_STABLE_LAPS 回たまったら収穫する
 # - 収穫が0なら成熟待ちとしてREPAIR継続（PLANTに戻らない）
+# - 収穫成功後は(0,0)へ戻らず、そのまま次サイクルへ（あなたの意図どおり）
 
 DEBUG = True
 
 PHASE_PLANT = 0
 PHASE_REPAIR = 1
 
-MIN_STABLE_LAPS = 1  # まず3。まだ小さく刈るなら5へ
+MIN_STABLE_LAPS = 1  # あなたの現状に合わせる（必要なら後で戻す）
 
 
 def dbg(msg):
@@ -59,7 +60,7 @@ def ensure_soil():
 def make_empty():
 	t = get_entity_type()
 
-	# ★空なら何もしない（最大化収穫後はほぼここに入るので、無駄clearが消える）
+	# 空なら何もしない（最大化収穫後はほぼここに入る）
 	if t == None:
 		return
 
@@ -143,24 +144,50 @@ def start_repair_lap():
 	go_to(0, 0)
 	_S[4] = 1
 
-def do_tile_action():
-	phase = _S[0]
+
+# ---- ここが本件：PLANTは「二重ループ蛇行」で一気に全面植え付け ----
+def plant_full_force():
+	# (0,0)へ
+	go_to(0, 0)
+
+	size = get_world_size()
+	y = 0
+	while y < size:
+		if y % 2 == 0:
+			x = 0
+			while x < size:
+				plant_here_force()
+				if x < size - 1:
+					move(East)
+				x += 1
+		else:
+			x = size - 1
+			while x >= 0:
+				plant_here_force()
+				if x > 0:
+					move(West)
+				x -= 1
+
+		if y < size - 1:
+			move(North)
+		y += 1
+
+	# state同期（念のため）
+	sync_state_pos()
+
+
+def do_tile_action_repair_only():
+	# REPAIRだけ（PLANTは plant_full_force() が担当）
 	t = get_entity_type()
 
-	if phase == PHASE_PLANT:
-		# 全面植え付け（問答無用）
-		plant_here_force()
-		return
-
-	# ===== PHASE_REPAIR =====
+	# dead は植えるだけで除去される
 	if t == Entities.Dead_Pumpkin:
-		# dead は植えるだけで除去される
 		ensure_soil()
 		plant(Entities.Pumpkin)
 		_S[6] += 1
 		return
 
-	# 収穫候補は「Pumpkin かつ can_harvest」のときだけ、best_measure を採用
+	# Pumpkin かつ can_harvest のときだけ、best_measure を採用
 	if t == Entities.Pumpkin:
 		if can_harvest():
 			mv = measure()
@@ -171,14 +198,14 @@ def do_tile_action():
 				_S[9] = get_pos_y()
 		return
 
-	# Grass等は触らない（成長/合体待ちの可能性がある）
+	# Grass等は触らない（成長/合体待ちの可能性）
 	return
 
 
 def harvest_at(x, y):
 	go_to(x, y)
 
-	# ここは安全確認だけ（最大化判定は周回で済ませる）
+	# 安全確認だけ（最大化判定は周回で済ませる）
 	if get_entity_type() != Entities.Pumpkin:
 		dbg("HARVEST_SKIP: not pumpkin at (" + i2s(x) + "," + i2s(y) + ") entity=" + str(get_entity_type()))
 		return 0
@@ -198,40 +225,45 @@ def run(reset_field=False):
 	if reset_field:
 		dbg("run: reset_field=True -> PLANT")
 		_S[0] = PHASE_PLANT
-		go_to(0, 0)
-		_S[4] = 1
 		_S[12] = 0
 		reset_lap()
 
-	# REPAIRに入る/REPAIR周回開始時は必ず開始点固定
+	# ===== PLANT は「一気に全面植え付け」して終わり =====
+	if _S[0] == PHASE_PLANT:
+		dbg("run: phase=0 (PLANT_FULL) lap=" + i2s(_S[10]) + " stable=" + i2s(_S[12]))
+		plant_full_force()
+
+		# ログ合わせ：phase=0のlap endを出す
+		dbg("lap end: phase=0 repaired=0 harvest_found=0 best_measure=-1 stable=" + i2s(_S[12]) + " lap=" + i2s(_S[10]))
+
+		# 植え付け完了 → REPAIRへ
+		_S[0] = PHASE_REPAIR
+		_S[12] = 0
+		reset_lap()
+		start_repair_lap()
+		return 0
+
+	# ===== REPAIR =====
+	# REPAIR周回開始時は必ず開始点固定
 	if _S[0] == PHASE_REPAIR and _S[5] == 0:
 		start_repair_lap()
 
-	dbg("run: phase=" + i2s(_S[0]) + " pos=(" + i2s(_S[2]) + "," + i2s(_S[3]) + ") lap=" + i2s(_S[10]) + " stable=" + i2s(_S[12]))
+	dbg("run: phase=1 pos=(" + i2s(_S[2]) + "," + i2s(_S[3]) + ") lap=" + i2s(_S[10]) + " stable=" + i2s(_S[12]))
 
 	while True:
-		do_tile_action()
+		do_tile_action_repair_only()
 		_S[5] += 1
 
 		if at_end_of_lap():
-			dbg("lap end: phase=" + i2s(_S[0])
+			dbg("lap end: phase=1"
 				+ " repaired=" + i2s(_S[6])
 				+ " harvest_found=" + i2s(_S[7])
 				+ " best_measure=" + str(_S[11])
 				+ " stable=" + i2s(_S[12])
 				+ " lap=" + i2s(_S[10]))
 
-			if _S[0] == PHASE_PLANT:
-				# 植え付け完了 → REPAIRへ
-				_S[0] = PHASE_REPAIR
-				_S[12] = 0
-				reset_lap()
-				start_repair_lap()
-				return 0
-
-			# ===== REPAIR 周回末尾 =====
+			# dead修理が入ったら安定リセット、収穫しない
 			if _S[6] > 0:
-				# dead修理が入ったら安定リセット、収穫しない
 				_S[12] = 0
 				reset_lap()
 				start_repair_lap()
@@ -253,12 +285,12 @@ def run(reset_field=False):
 				if gained > 0:
 					# 収穫成功 → 次サイクル（PLANTへ）
 					_S[0] = PHASE_PLANT
-					
-					# ★無駄な移動を消す：戻らない
+
+					# ★無駄な移動を消す：戻らない（あなたの現行と同じ）
 					# go_to(0, 0)
 					# _S[4] = 1
-					
-					_S[12] = 0   # stableリセット（stable版なら）
+
+					_S[12] = 0
 					reset_lap()
 					return gained
 
