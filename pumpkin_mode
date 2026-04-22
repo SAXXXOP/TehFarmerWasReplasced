@@ -150,10 +150,18 @@ def do_tile_action():
 
 def harvest_at(x, y):
 	go_to(x, y)
+
+	t = get_entity_type()
+	ch = can_harvest()
+	mv = measure()
+
 	before = num_items(Items.Pumpkin)
 	harvest()
 	after = num_items(Items.Pumpkin)
-	return after - before
+
+	gained = after - before
+	dbg("HARVEST_CHECK: pos=(" + i2s(x) + "," + i2s(y) + ") entity=" + str(t) + " can_harvest=" + str(ch) + " measure=" + str(mv) + " before=" + str(before) + " after=" + str(after) + " gained=" + str(gained))
+	return gained
 
 
 def run(reset_field=False):
