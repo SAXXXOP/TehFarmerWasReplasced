@@ -212,7 +212,7 @@ while True:
 		elif mode == "pumpkin":
 			ensure_normal_hat()
 			if pumpkin_mode.enough_for_mode():
-				reset_field = last_mode != "pumpkin"
+				reset_field = last_mode != "pumpkin" and last_mode != "sunflower_boost"
 				if reset_field:
 					quick_print("pumpkin enter: reset_field=", reset_field, "last_mode=", last_mode)
 
